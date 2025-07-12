@@ -1,0 +1,23 @@
+{
+  "openai_api_key": "sk-your-openai-key-here",
+  "anthropic_api_key": "sk-ant-your-anthropic-key-here",
+  "openai_model": "gpt-4-0613",
+  "claude_model": "claude-sonnet-4-20250514",
+  "allowed_tools": ["Read", "Write", "Bash(npm run test)"],
+  "permission_mode": "acceptEdits",
+  "max_turns": 5,
+  "token_limits": {
+    "daily_token_limit": 100000,
+    "monthly_token_limit": 3000000,
+    "daily_cost_limit_usd": 50.0,
+    "monthly_cost_limit_usd": 1500.0,
+    "per_session_token_limit": 10000,
+    "warn_at_percentage": 80.0
+  },
+  "features": {
+    "track_tokens": true,
+    "auto_cleanup_logs": true,
+    "cleanup_days": 90
+  },
+  "memory_limit_mb": 512.0
+}

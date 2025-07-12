@@ -1,0 +1,5 @@
+{
+  "action": "create_file",
+  "filename": "hello.py",
+  "instruction": "Create a Python file hello.py that prints 'Hello, World!' when run."
+}

@@ -1,0 +1,27 @@
+#!/usr/bin/env python3
+"""
+MeistroCraft - Command line entry point
+Runs the main.py script with all arguments passed through.
+"""
+
+import sys
+import os
+import subprocess
+
+def main():
+    # Get the directory where this script is located
+    script_dir = os.path.dirname(os.path.abspath(__file__))
+    main_py = os.path.join(script_dir, "main.py")
+    
+    # Run main.py with all command line arguments
+    try:
+        subprocess.run([sys.executable, main_py] + sys.argv[1:])
+    except KeyboardInterrupt:
+        print("\nMeistroCraft interrupted by user")
+        sys.exit(1)
+    except Exception as e:
+        print(f"Error running MeistroCraft: {e}")
+        sys.exit(1)
+
+if __name__ == "__main__":
+    main()
