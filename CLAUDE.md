@@ -1,0 +1,196 @@
+# MeistroCraft IDE - Technical Documentation for Claude
+
+## Overview
+MeistroCraft is a browser-based AI-powered IDE that combines real-time code editing with intelligent assistance from GPT-4 and Claude. It provides a complete development environment with file management, terminal integration, and AI-driven code generation.
+
+## Architecture
+
+### Core Components
+
+1. **Backend (FastAPI)** - `web_server.py`
+   - WebSocket handlers for real-time communication
+   - File system API with security restrictions (projects folder only)
+   - Integration with existing MeistroCraft AI backend
+   - Session management with project folder sandboxing
+
+2. **Frontend (Vanilla JS)** - `static/js/ide.js`
+   - Monaco Editor integration for code editing
+   - Tab management system for multiple files
+   - WebSocket client for AI communication
+   - File explorer with tree navigation
+
+3. **UI Template** - `templates/ide.html`
+   - CSS Grid layout with resizable panels
+   - Dark theme VS Code-style interface
+   - Status bar with token tracking
+
+## Key Features
+
+### File Management
+- **Security**: All file operations restricted to `projects/` directory
+- **Tree Navigation**: Hierarchical file explorer in sidebar
+- **Tab System**: Multiple file editing with close/modified indicators
+- **New File Creation**: Plus tab with language-specific templates
+
+### AI Integration
+- **Context Awareness**: AI receives current file context (path, language, content preview)
+- **Streaming Responses**: Real-time response chunks via WebSocket
+- **Backend Integration**: Uses existing MeistroCraft task generation (GPT-4) + execution (Claude)
+- **Session Management**: Each web session maps to a MeistroCraft session with isolated project folder
+
+### UI Layout (CSS Grid)
+```css
+grid-template-areas: 
+    "sidebar editor chat"
+    "sidebar terminal chat";
+grid-template-columns: 300px 1fr 300px;
+grid-template-rows: 1fr 200px;
+```
+
+### Resizable Panels
+- **Handles**: Invisible dividers between panels with hover/drag states
+- **Constraints**: Min/max sizes to prevent UI collapse
+- **Editor Integration**: Monaco Editor automatically relayouts on resize
+
+## File Structure
+
+```
+/home/mark/claude-coder/ai_coding_agent/
+├── web_server.py              # FastAPI backend
+├── templates/
+│   └── ide.html              # Main UI template
+├── static/
+│   └── js/
+│       └── ide.js            # Frontend JavaScript
+├── projects/                 # Sandboxed user projects
+├── config/                   # AI API configurations
+└── main.py                   # Core MeistroCraft backend
+```
+
+## WebSocket Message Types
+
+### Client → Server
+- `chat`: AI assistance request with file context
+- `command`: Terminal command execution
+- `file_operation`: File read/write/list operations
+- `get_tasks`: Request task queue status
+
+### Server → Client
+- `chat_response_chunk`: Streaming AI response
+- `chat_response_complete`: End of AI response with token count
+- `command_response`: Terminal command output
+- `file_response`: File operation results
+
+## Tab Management System
+
+### Tab Data Structure
+```javascript
+{
+    id: "unique-tab-id",
+    title: "filename.js",
+    icon: "📄",
+    content: "file content",
+    isFile: true,
+    filePath: "/path/to/file",
+    modified: false,
+    language: "javascript"
+}
+```
+
+### Key Methods
+- `createTab()`: Create new tab with content
+- `switchTab()`: Change active tab and update Monaco Editor
+- `closeTab()`: Remove tab with unsaved changes warning
+- `markTabModified()`: Visual indicator for unsaved changes
+
+## AI Context System
+
+When user sends chat message, frontend automatically includes:
+```javascript
+{
+    type: 'chat',
+    content: "user message",
+    context: {
+        tab_id: "current-tab-id",
+        tab_title: "filename.js",
+        language: "javascript",
+        is_file: true,
+        file_path: "/path/to/file",
+        content_preview: "first 500 chars..."
+    }
+}
+```
+
+Backend enhances the message with file context before sending to AI.
+
+## Session Management
+
+1. **Web Session Creation**: Unique ID generated on page load
+2. **MeistroCraft Session Mapping**: Web session maps to backend session
+3. **Project Folder**: Each session gets isolated folder in `projects/`
+4. **Cleanup**: Folders removed when sessions deleted
+
+## Security Features
+
+- **Path Traversal Protection**: All file operations validated against projects root
+- **Sandboxing**: Each session isolated to its own project folder
+- **Command Timeout**: Terminal commands limited to 30 seconds
+- **File Size Limits**: 10MB max file size for safety
+
+## Monaco Editor Integration
+
+- **Language Detection**: Based on file extension
+- **Theme**: VS Code dark theme
+- **Auto-layout**: Responds to panel resizing
+- **Change Detection**: Marks tabs as modified on edit
+
+## Preview System
+
+- **Markdown Rendering**: Real-time preview with syntax highlighting
+- **HTML Display**: Live preview in iframe
+- **Toggle Mode**: Split-screen or full editor view
+- **Language Support**: Auto-detection based on file extension
+
+## Debugging Common Issues
+
+### Resizable Windows Not Working
+1. Check if resize handles are positioned correctly in CSS
+2. Verify event listeners are attached in `initializeResize()`
+3. Ensure grid template updates are applied to correct element
+4. Check browser console for JavaScript errors
+
+### AI Context Not Working
+1. Verify `getActiveTabContext()` returns valid data
+2. Check WebSocket message includes context field
+3. Ensure backend enhances content with file info
+
+### File Operations Failing
+1. Check if path is within projects directory
+2. Verify file permissions and existence
+3. Check for proper error handling in WebSocket responses
+
+## Starting the IDE
+
+```bash
+# From project root
+python start_web_ide.py
+# or
+python web_server.py
+
+# Access at http://localhost:8000
+```
+
+## Configuration
+
+- **API Keys**: Set in `config/config.json`
+- **Models**: GPT-4 for task generation, Claude for execution
+- **Limits**: Token tracking and cost monitoring built-in
+
+## Performance Notes
+
+- **WebSocket Streaming**: 5ms delays for smooth chat scrolling
+- **Monaco Layout**: Automatic resize on panel changes
+- **File Loading**: Lazy loading for large directory trees
+- **Memory Management**: Tab cleanup prevents memory leaks
+
+This documentation provides the essential understanding needed to work with, debug, and extend the MeistroCraft IDE system.

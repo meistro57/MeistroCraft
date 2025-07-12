@@ -19,6 +19,8 @@ except ImportError:
     print("OpenAI library not found. Install with: pip install openai")
     OpenAI = None
 
+from naming_agent import generate_creative_project_name
+
 from token_tracker import TokenTracker, TokenUsage, UsageLimits
 from persistent_memory import PersistentMemory, MemoryType, MemoryPriority
 from workspace_manager import WorkspaceManager
@@ -57,6 +59,10 @@ class SessionManager:
     def create_session(self, name: Optional[str] = None, task_description: Optional[str] = None) -> str:
         """Create a new session and return session ID."""
         session_id = str(uuid.uuid4())
+        
+        # Create sandboxed project folder for this session
+        project_folder = self._create_session_project_folder(session_id, task_description or "session_workspace")
+        
         session_data = {
             "id": session_id,
             "name": name or f"Session {session_id}",
@@ -65,7 +71,8 @@ class SessionManager:
             "task_history": [],
             "context": "",
             "workspace_id": None,
-            "workspace_path": None
+            "workspace_path": None,
+            "project_folder": project_folder
         }
         
         # Create isolated workspace if workspace manager is available
@@ -82,14 +89,46 @@ class SessionManager:
         with open(session_file, 'w') as f:
             json.dump(session_data, f, indent=2)
         
+        print(f"📁 Created project folder: {project_folder}")
         return session_id
     
     def load_session(self, session_id: str) -> Optional[Dict[str, Any]]:
-        """Load session data by ID."""
+        """Load session data by ID with error handling."""
         session_file = os.path.join(self.sessions_dir, f"{session_id}.json")
         if os.path.exists(session_file):
-            with open(session_file, 'r') as f:
-                return json.load(f)
+            try:
+                with open(session_file, 'r') as f:
+                    data = json.load(f)
+                
+                # Validate required fields and repair if necessary
+                if not isinstance(data, dict):
+                    print(f"⚠️  Session {session_id[:8]} has invalid format, skipping")
+                    return None
+                
+                # Ensure required fields exist
+                if "id" not in data:
+                    data["id"] = session_id
+                if "name" not in data:
+                    data["name"] = f"Session {session_id}"
+                if "created_at" not in data:
+                    data["created_at"] = datetime.now().isoformat()
+                if "last_used" not in data:
+                    data["last_used"] = datetime.now().isoformat()
+                if "task_history" not in data:
+                    data["task_history"] = []
+                if "context" not in data:
+                    data["context"] = ""
+                if "project_folder" not in data:
+                    data["project_folder"] = None
+                
+                return data
+                
+            except json.JSONDecodeError as e:
+                print(f"⚠️  Session {session_id[:8]} has corrupted JSON: {e}")
+                return None
+            except Exception as e:
+                print(f"⚠️  Error loading session {session_id[:8]}: {e}")
+                return None
         return None
     
     def find_session_by_short_id(self, short_id: str) -> Optional[str]:
@@ -101,6 +140,11 @@ class SessionManager:
                     return full_id
         return None
     
+    def session_exists(self, session_id: str) -> bool:
+        """Check if a session exists."""
+        session_file = os.path.join(self.sessions_dir, f"{session_id}.json")
+        return os.path.exists(session_file)
+    
     def save_session(self, session_data: Dict[str, Any]) -> None:
         """Save session data."""
         session_id = session_data["id"]
@@ -111,8 +155,10 @@ class SessionManager:
             json.dump(session_data, f, indent=2)
     
     def list_sessions(self) -> List[Dict[str, Any]]:
-        """List all available sessions."""
+        """List all available sessions with error handling."""
         sessions = []
+        corrupted_count = 0
+        
         for filename in os.listdir(self.sessions_dir):
             if filename.endswith('.json'):
                 session_id = filename[:-5]
@@ -126,9 +172,15 @@ class SessionManager:
                         "last_used": session_data.get("last_used", ""),
                         "task_count": len(session_data.get("task_history", []))
                     })
+                else:
+                    corrupted_count += 1
         
         # Sort by last used (most recent first)
         sessions.sort(key=lambda x: x["last_used"], reverse=True)
+        
+        if corrupted_count > 0:
+            print(f"⚠️  Found {corrupted_count} corrupted session files. Run --repair-sessions to fix them.")
+        
         return sessions
     
     def add_task_to_session(self, session_id: str, task: Dict[str, Any], result: Dict[str, Any]) -> None:
@@ -197,6 +249,250 @@ class SessionManager:
                 return success
         
         return True
+    
+    def delete_session(self, session_id: str) -> bool:
+        """Delete a session file permanently."""
+        session_file = os.path.join(self.sessions_dir, f"{session_id}.json")
+        if os.path.exists(session_file):
+            try:
+                # Load session data to get project folder before deletion
+                session_data = self.load_session(session_id)
+                
+                # Clean up associated project folder if it exists
+                if session_data and session_data.get("project_folder"):
+                    project_folder = session_data["project_folder"]
+                    self._cleanup_session_project_folder(project_folder, session_id)
+                
+                os.remove(session_file)
+                print(f"🗑️  Deleted session {session_id[:8]}")
+                return True
+            except Exception as e:
+                print(f"❌ Failed to delete session {session_id[:8]}: {e}")
+                return False
+        return False
+    
+    def _cleanup_session_project_folder(self, project_folder: str, session_id: str) -> None:
+        """Clean up the project folder associated with a session."""
+        try:
+            if os.path.exists(project_folder):
+                # Check if this is actually a session folder by looking for .session marker
+                session_marker = os.path.join(project_folder, ".session")
+                if os.path.exists(session_marker):
+                    with open(session_marker, 'r') as f:
+                        marker_data = json.load(f)
+                    
+                    # Only delete if it belongs to this session
+                    if marker_data.get("session_id") == session_id:
+                        import shutil
+                        shutil.rmtree(project_folder)
+                        print(f"🗑️  Cleaned up project folder: {project_folder}")
+                    else:
+                        print(f"⚠️  Project folder belongs to different session, skipping cleanup")
+                else:
+                    print(f"⚠️  Project folder {project_folder} is not a session folder, skipping cleanup")
+        except Exception as e:
+            print(f"❌ Error cleaning up project folder {project_folder}: {e}")
+    
+    def cleanup_old_sessions(self, days_old: int = 30, max_sessions: int = 50) -> Dict[str, int]:
+        """Clean up old sessions based on age and session count."""
+        cleanup_stats = {
+            "deleted_by_age": 0,
+            "deleted_by_count": 0,
+            "corrupted_deleted": 0,
+            "total_remaining": 0
+        }
+        
+        sessions = []
+        corrupted_files = []
+        
+        # First pass: identify valid sessions and corrupted files
+        for filename in os.listdir(self.sessions_dir):
+            if filename.endswith('.json'):
+                session_id = filename[:-5]
+                session_file = os.path.join(self.sessions_dir, filename)
+                
+                try:
+                    session_data = self.load_session(session_id)
+                    if session_data:
+                        sessions.append({
+                            "id": session_id,
+                            "last_used": session_data.get("last_used", ""),
+                            "created_at": session_data.get("created_at", ""),
+                            "task_count": len(session_data.get("task_history", []))
+                        })
+                    else:
+                        corrupted_files.append(session_file)
+                except (json.JSONDecodeError, FileNotFoundError, Exception):
+                    corrupted_files.append(session_file)
+        
+        # Remove corrupted files
+        for corrupted_file in corrupted_files:
+            try:
+                os.remove(corrupted_file)
+                cleanup_stats["corrupted_deleted"] += 1
+                print(f"🗑️  Removed corrupted session file: {os.path.basename(corrupted_file)}")
+            except Exception as e:
+                print(f"❌ Failed to remove corrupted file {corrupted_file}: {e}")
+        
+        # Sort sessions by last_used (oldest first)
+        sessions.sort(key=lambda x: x["last_used"] or x["created_at"])
+        
+        # Delete sessions older than specified days
+        cutoff_date = datetime.now() - timedelta(days=days_old)
+        for session in sessions[:]:
+            last_used_str = session["last_used"] or session["created_at"]
+            if last_used_str:
+                try:
+                    last_used = datetime.fromisoformat(last_used_str.replace('Z', '+00:00'))
+                    if last_used < cutoff_date:
+                        if self.delete_session(session["id"]):
+                            cleanup_stats["deleted_by_age"] += 1
+                            sessions.remove(session)
+                except Exception:
+                    # If we can't parse the date, skip this session
+                    pass
+        
+        # If we still have too many sessions, delete oldest ones
+        if len(sessions) > max_sessions:
+            sessions_to_delete = sessions[:len(sessions) - max_sessions]
+            for session in sessions_to_delete:
+                if self.delete_session(session["id"]):
+                    cleanup_stats["deleted_by_count"] += 1
+                    sessions.remove(session)
+        
+        cleanup_stats["total_remaining"] = len(sessions)
+        return cleanup_stats
+    
+    def repair_sessions(self) -> Dict[str, int]:
+        """Attempt to repair corrupted session files."""
+        repair_stats = {
+            "repaired": 0,
+            "deleted": 0,
+            "unchanged": 0
+        }
+        
+        for filename in os.listdir(self.sessions_dir):
+            if filename.endswith('.json'):
+                session_id = filename[:-5]
+                session_file = os.path.join(self.sessions_dir, filename)
+                
+                try:
+                    with open(session_file, 'r') as f:
+                        content = f.read().strip()
+                    
+                    # Try to parse as JSON
+                    json.loads(content)
+                    repair_stats["unchanged"] += 1
+                    
+                except json.JSONDecodeError:
+                    # Try to repair common JSON issues
+                    try:
+                        # Remove trailing commas and fix basic issues
+                        import re
+                        fixed_content = re.sub(r',(\s*[}\]])', r'\1', content)
+                        
+                        # Try parsing the fixed content
+                        data = json.loads(fixed_content)
+                        
+                        # Ensure required fields exist
+                        if "id" not in data:
+                            data["id"] = session_id
+                        if "name" not in data:
+                            data["name"] = f"Session {session_id}"
+                        if "created_at" not in data:
+                            data["created_at"] = datetime.now().isoformat()
+                        if "last_used" not in data:
+                            data["last_used"] = datetime.now().isoformat()
+                        if "task_history" not in data:
+                            data["task_history"] = []
+                        if "context" not in data:
+                            data["context"] = ""
+                        
+                        # Write the repaired session
+                        with open(session_file, 'w') as f:
+                            json.dump(data, f, indent=2)
+                        
+                        repair_stats["repaired"] += 1
+                        print(f"🔧 Repaired session {session_id[:8]}")
+                        
+                    except Exception:
+                        # Can't repair, delete the file
+                        try:
+                            os.remove(session_file)
+                            repair_stats["deleted"] += 1
+                            print(f"🗑️  Deleted unrepairable session {session_id[:8]}")
+                        except Exception as e:
+                            print(f"❌ Failed to delete session {session_id[:8]}: {e}")
+                
+                except Exception as e:
+                    print(f"❌ Error processing session {session_id[:8]}: {e}")
+        
+        return repair_stats
+    
+    def _create_session_project_folder(self, session_id: str, task_description: str) -> str:
+        """Create a sandboxed project folder for a session."""
+        from naming_agent import generate_creative_project_name
+        
+        # Generate creative name for the project folder
+        try:
+            # Use a basic config for naming if none provided
+            basic_config = {"openai_api_key": "dummy"}  # Just for naming
+            creative_name = generate_creative_project_name(task_description, basic_config)
+            print(f"🎨 Generated project name: {creative_name}")
+        except Exception as e:
+            print(f"⚠️  Naming agent failed, using fallback: {e}")
+            creative_name = _fallback_project_name(task_description)
+        
+        # Create projects directory if it doesn't exist
+        projects_dir = "projects"
+        os.makedirs(projects_dir, exist_ok=True)
+        
+        # Create unique project folder with session prefix for sandboxing
+        session_prefix = f"session_{session_id[:8]}"
+        project_folder_name = f"{session_prefix}_{creative_name}"
+        project_folder = os.path.join(projects_dir, project_folder_name)
+        
+        # Ensure uniqueness
+        counter = 1
+        original_folder = project_folder
+        while os.path.exists(project_folder):
+            project_folder = f"{original_folder}_{counter}"
+            counter += 1
+        
+        # Create the sandboxed project folder
+        os.makedirs(project_folder, exist_ok=True)
+        
+        # Create a .session file to mark this as a session folder
+        session_marker_file = os.path.join(project_folder, ".session")
+        with open(session_marker_file, 'w') as f:
+            json.dump({
+                "session_id": session_id,
+                "created_at": datetime.now().isoformat(),
+                "task_description": task_description,
+                "sandboxed": True
+            }, f, indent=2)
+        
+        # Create basic project structure
+        readme_content = f"""# {creative_name}
+
+## Session Information
+- **Session ID**: {session_id[:8]}...
+- **Created**: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}
+- **Description**: {task_description}
+
+## Workspace
+This is a sandboxed workspace for the MeistroCraft session. All files created during this session will be contained within this folder.
+
+## Getting Started
+1. Use the terminal commands to interact with this project
+2. Files created by Claude will appear in this directory
+3. Use `/test`, `/run`, and `/build` commands to work with your project
+"""
+        readme_file = os.path.join(project_folder, "README.md")
+        with open(readme_file, 'w') as f:
+            f.write(readme_content)
+        
+        return project_folder
 
 def run_claude_task(task: Dict[str, Any], config: Dict[str, Any], session_id: Optional[str] = None, session_manager: Optional[SessionManager] = None, project_folder: Optional[str] = None, token_tracker: Optional[TokenTracker] = None) -> Dict[str, Any]:
     """
@@ -231,8 +527,12 @@ def run_claude_task(task: Dict[str, Any], config: Dict[str, Any], session_id: Op
     ]
     
     # Add session resume if continuing an existing session
-    if session_id:
-        cli_cmd += ["--resume", session_id]
+    # Only resume if we have evidence that the Claude CLI session already exists
+    if session_id and session_manager:
+        session_data = session_manager.load_session(session_id)
+        # Only resume if this session has had successful Claude interactions before
+        if session_data and session_data.get("task_history"):
+            cli_cmd += ["--resume", session_id]
     
     # Set working directory if we have a project folder
     working_dir = project_folder if project_folder else None
@@ -395,27 +695,44 @@ def get_function_schema() -> Dict[str, Any]:
         }
     }
 
-def setup_project_folder(project_name: str) -> str:
-    """Create and setup a project folder for organized code generation."""
-    # Clean project name for filesystem
-    clean_name = "".join(c for c in project_name if c.isalnum() or c in (' ', '-', '_')).rstrip()
-    clean_name = clean_name.replace(' ', '_').lower()
+def setup_project_folder(project_description: str, config: Optional[Dict[str, Any]] = None) -> str:
+    """Create and setup a project folder with a creative name generated from description."""
+    
+    # Generate creative name using naming agent
+    if config:
+        try:
+            creative_name = generate_creative_project_name(project_description, config)
+            print(f"🎨 Generated project name: {creative_name}")
+        except Exception as e:
+            print(f"⚠️  Naming agent failed, using fallback: {e}")
+            creative_name = _fallback_project_name(project_description)
+    else:
+        creative_name = _fallback_project_name(project_description)
     
     # Create projects directory if it doesn't exist
     projects_dir = "projects"
     os.makedirs(projects_dir, exist_ok=True)
     
     # Create unique project folder
-    project_folder = os.path.join(projects_dir, clean_name)
+    project_folder = os.path.join(projects_dir, creative_name)
     counter = 1
     original_folder = project_folder
     
     while os.path.exists(project_folder):
-        project_folder = f"{original_folder}_{counter}"
+        project_folder = f"{original_folder}-{counter}"
         counter += 1
     
     os.makedirs(project_folder, exist_ok=True)
     return project_folder
+
+def _fallback_project_name(description: str) -> str:
+    """Fallback method for generating project names when naming agent fails."""
+    # Clean and truncate description for filesystem
+    clean_name = "".join(c for c in description if c.isalnum() or c in (' ', '-', '_')).rstrip()
+    clean_name = clean_name.replace(' ', '_').lower()
+    
+    # Limit to 30 characters as before
+    return clean_name[:30]
 
 def generate_task_with_gpt4(user_request: str, config: Dict[str, Any], project_folder: Optional[str] = None, token_tracker: Optional[TokenTracker] = None, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Use GPT-4 to generate a task from user request."""
@@ -778,11 +1095,11 @@ def interactive_mode(config: Dict[str, Any], session_id: Optional[str] = None, t
                                 session_manager.save_session(session_data)
                     else:
                         # Fallback to regular project folder
-                        project_folder = setup_project_folder(user_input[:30])
+                        project_folder = setup_project_folder(user_input, config)
                         print(f"📁 Created project folder: {project_folder}")
                 else:
                     # No workspace manager, use regular project folder
-                    project_folder = setup_project_folder(user_input[:30])
+                    project_folder = setup_project_folder(user_input, config)
                     print(f"📁 Created project folder: {project_folder}")
         
         # Generate task with GPT-4
@@ -1127,13 +1444,77 @@ def main():
         else:
             print("❌ --clear-session-memory requires a session ID")
     
+    elif len(sys.argv) > 1 and sys.argv[1] == "--cleanup-sessions":
+        # Clean up old sessions
+        session_manager = SessionManager(workspace_manager=workspace_manager)
+        
+        # Parse optional parameters
+        days_old = 30
+        max_sessions = 50
+        
+        if len(sys.argv) > 2:
+            try:
+                days_old = int(sys.argv[2])
+            except ValueError:
+                print("❌ Days parameter must be a number")
+                sys.exit(1)
+        
+        if len(sys.argv) > 3:
+            try:
+                max_sessions = int(sys.argv[3])
+            except ValueError:
+                print("❌ Max sessions parameter must be a number")
+                sys.exit(1)
+        
+        print(f"🧹 Cleaning up sessions older than {days_old} days and keeping max {max_sessions} sessions...")
+        stats = session_manager.cleanup_old_sessions(days_old, max_sessions)
+        
+        print(f"✅ Cleanup completed:")
+        print(f"   Sessions deleted by age: {stats['deleted_by_age']}")
+        print(f"   Sessions deleted by count limit: {stats['deleted_by_count']}")
+        print(f"   Corrupted files removed: {stats['corrupted_deleted']}")
+        print(f"   Sessions remaining: {stats['total_remaining']}")
+    
+    elif len(sys.argv) > 1 and sys.argv[1] == "--repair-sessions":
+        # Repair corrupted session files
+        session_manager = SessionManager(workspace_manager=workspace_manager)
+        
+        print("🔧 Repairing session files...")
+        stats = session_manager.repair_sessions()
+        
+        print(f"✅ Session repair completed:")
+        print(f"   Sessions repaired: {stats['repaired']}")
+        print(f"   Unrepairable sessions deleted: {stats['deleted']}")
+        print(f"   Sessions unchanged: {stats['unchanged']}")
+    
+    elif len(sys.argv) > 1 and sys.argv[1] == "--delete-session":
+        # Delete a specific session
+        if len(sys.argv) > 2:
+            session_id = sys.argv[2]
+            session_manager = SessionManager(workspace_manager=workspace_manager)
+            
+            # Try to find session by short ID if not found directly
+            session_data = session_manager.load_session(session_id)
+            if not session_data and len(session_id) == 8:
+                full_session_id = session_manager.find_session_by_short_id(session_id)
+                if full_session_id:
+                    session_id = full_session_id
+            
+            success = session_manager.delete_session(session_id)
+            if success:
+                print(f"✅ Session {session_id[:8]} deleted successfully")
+            else:
+                print(f"❌ Failed to delete session {session_id[:8]} (may not exist)")
+        else:
+            print("❌ --delete-session requires a session ID")
+    
     elif len(sys.argv) > 1 and sys.argv[1] == "--request":
         if has_openai and len(sys.argv) > 2:
             user_request = " ".join(sys.argv[2:])
             print(f"🎯 Processing request: {user_request}")
             
             # Single requests get their own project folder
-            project_folder = setup_project_folder(user_request[:30])
+            project_folder = setup_project_folder(user_request, config)
             print(f"📁 Created project folder: {project_folder}")
             
             session_manager = SessionManager()
@@ -1212,6 +1593,9 @@ def main():
     print(f"  meistrocraft --memory-cleanup                 # Clean up old memory entries")
     print(f"  meistrocraft --memory-export                  # Export memory report")
     print(f"  meistrocraft --clear-session-memory <id>      # Clear memory for session")
+    print(f"  meistrocraft --cleanup-sessions [days] [max]  # Clean up old sessions (default: 30 days, 50 max)")
+    print(f"  meistrocraft --repair-sessions                # Repair corrupted session files")
+    print(f"  meistrocraft --delete-session <id>            # Delete a specific session")
     print(f"\n📦 Dependencies:")
     print(f"  pip install openai rich                       # Install required packages")
 

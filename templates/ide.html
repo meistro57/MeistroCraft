@@ -4,6 +4,8 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeistroCraft IDE</title>
+    <link rel="stylesheet" href="/static/css/wizard.css">
+    <link rel="stylesheet" href="/static/css/project-manager.css">
     <style>
         * {
             margin: 0;
@@ -24,9 +26,61 @@
             grid-template-areas: 
                 "sidebar editor chat"
                 "sidebar terminal chat";
-            grid-template-columns: 250px 1fr 300px;
+            grid-template-columns: 300px 1fr 300px;
             grid-template-rows: 1fr 200px;
-            height: 100vh;
+            height: calc(100vh - 25px); /* Reserve space for status bar */
+            position: relative;
+        }
+        
+        /* Resize handles */
+        .resize-handle {
+            position: absolute;
+            background: rgba(255, 0, 0, 0.1); /* Temporary visible background for debugging */
+            z-index: 1000;
+        }
+        
+        .resize-handle:hover {
+            background: rgba(14, 99, 156, 0.3);
+        }
+        
+        .resize-handle.dragging {
+            background: rgba(14, 99, 156, 0.5);
+        }
+        
+        .resize-handle-vertical {
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            top: 0;
+        }
+        
+        .resize-handle-horizontal {
+            height: 8px;
+            width: 100%;
+            cursor: row-resize;
+            left: 0;
+        }
+        
+        .resize-sidebar {
+            left: calc(300px - 4px); /* Position at sidebar edge */
+        }
+        
+        .resize-chat {
+            right: calc(300px - 4px); /* Position at chat panel edge */
+        }
+        
+        .resize-terminal {
+            top: calc(100% - 200px - 4px); /* Position at terminal edge */
+            left: 300px;
+            right: 300px;
+        }
+        
+        /* Prevent text selection during resize */
+        .resizing {
+            user-select: none;
+            -webkit-user-select: none;
+            -moz-user-select: none;
+            -ms-user-select: none;
         }
         
         .sidebar {
@@ -40,6 +94,263 @@
             grid-area: editor;
             background: #1e1e1e;
             position: relative;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .editor-tabs {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            padding: 0 10px;
+            height: 35px;
+            flex-shrink: 0;
+        }
+        
+        .tab-list {
+            display: flex;
+            gap: 2px;
+            overflow-x: auto;
+            flex: 1;
+        }
+        
+        .editor-tab {
+            display: flex;
+            align-items: center;
+            gap: 6px;
+            padding: 6px 12px;
+            background: #3c3c3c;
+            border-radius: 3px 3px 0 0;
+            cursor: pointer;
+            color: #d4d4d4;
+            font-size: 13px;
+            white-space: nowrap;
+            min-width: 120px;
+            max-width: 200px;
+            position: relative;
+        }
+        
+        .editor-tab:hover {
+            background: #37373d;
+        }
+        
+        .editor-tab.active {
+            background: #1e1e1e;
+            color: white;
+        }
+        
+        .editor-tab.modified {
+            color: #ffffff;
+        }
+        
+        .editor-tab.modified .tab-title::after {
+            content: " •";
+            color: #ff9800;
+        }
+        
+        .tab-plus {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            width: 30px;
+            height: 30px;
+            background: transparent;
+            border: none;
+            color: #d4d4d4;
+            font-size: 16px;
+            cursor: pointer;
+            border-radius: 3px;
+            margin-left: 5px;
+            flex-shrink: 0;
+        }
+        
+        .tab-plus:hover {
+            background: #37373d;
+            color: white;
+        }
+        
+        .tab-icon {
+            font-size: 12px;
+        }
+        
+        .tab-title {
+            flex: 1;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+        
+        .tab-close {
+            font-size: 16px;
+            color: #888;
+            cursor: pointer;
+            padding: 2px;
+            line-height: 1;
+        }
+        
+        .tab-close:hover {
+            color: #d4d4d4;
+            background: rgba(255,255,255,0.1);
+            border-radius: 2px;
+        }
+        
+        .tab-controls {
+            display: flex;
+            gap: 5px;
+            margin-left: 10px;
+        }
+        
+        .btn-tab {
+            background: transparent;
+            border: 1px solid #5e5e5e;
+            color: #d4d4d4;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .btn-tab:hover {
+            background: #37373d;
+        }
+        
+        .btn-tab.active {
+            background: #007acc;
+            border-color: #007acc;
+        }
+        
+        .editor-content {
+            flex: 1;
+            display: flex;
+            position: relative;
+        }
+        
+        .editor-pane {
+            flex: 1;
+            position: relative;
+        }
+        
+        .preview-pane {
+            flex: 1;
+            background: #ffffff;
+            border-left: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .preview-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 12px;
+            background: #f8f8f8;
+            border-bottom: 1px solid #ddd;
+        }
+        
+        .preview-header h4 {
+            margin: 0;
+            color: #333;
+            font-size: 14px;
+        }
+        
+        .preview-header select {
+            padding: 4px 8px;
+            border: 1px solid #ddd;
+            border-radius: 3px;
+            background: white;
+            font-size: 12px;
+        }
+        
+        .preview-content {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background: white;
+            color: #333;
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            line-height: 1.6;
+        }
+        
+        .preview-placeholder {
+            text-align: center;
+            color: #888;
+            font-style: italic;
+            margin-top: 50px;
+        }
+        
+        /* Markdown preview styles */
+        .preview-content h1, .preview-content h2, .preview-content h3,
+        .preview-content h4, .preview-content h5, .preview-content h6 {
+            margin-top: 24px;
+            margin-bottom: 16px;
+            font-weight: 600;
+            line-height: 1.25;
+        }
+        
+        .preview-content h1 { font-size: 2em; border-bottom: 1px solid #eee; padding-bottom: 10px; }
+        .preview-content h2 { font-size: 1.5em; border-bottom: 1px solid #eee; padding-bottom: 8px; }
+        .preview-content h3 { font-size: 1.25em; }
+        .preview-content h4 { font-size: 1em; }
+        .preview-content h5 { font-size: 0.875em; }
+        .preview-content h6 { font-size: 0.85em; color: #666; }
+        
+        .preview-content p {
+            margin-bottom: 16px;
+        }
+        
+        .preview-content code {
+            background: #f6f8fa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            font-family: 'Consolas', 'Monaco', monospace;
+            font-size: 85%;
+        }
+        
+        .preview-content pre {
+            background: #f6f8fa;
+            padding: 16px;
+            border-radius: 6px;
+            overflow-x: auto;
+            margin-bottom: 16px;
+        }
+        
+        .preview-content pre code {
+            background: none;
+            padding: 0;
+        }
+        
+        .preview-content blockquote {
+            border-left: 4px solid #dfe2e5;
+            padding-left: 16px;
+            color: #666;
+            margin: 0 0 16px 0;
+        }
+        
+        .preview-content ul, .preview-content ol {
+            margin-bottom: 16px;
+            padding-left: 24px;
+        }
+        
+        .preview-content li {
+            margin-bottom: 4px;
+        }
+        
+        .preview-content table {
+            border-collapse: collapse;
+            width: 100%;
+            margin-bottom: 16px;
+        }
+        
+        .preview-content th, .preview-content td {
+            border: 1px solid #dfe2e5;
+            padding: 8px 12px;
+            text-align: left;
+        }
+        
+        .preview-content th {
+            background: #f6f8fa;
+            font-weight: 600;
         }
         
         .chat-container {
@@ -48,6 +359,7 @@
             border-left: 1px solid #3e3e42;
             display: flex;
             flex-direction: column;
+            padding-bottom: 5px; /* Space for status bar */
         }
         
         .terminal-container {
@@ -55,8 +367,11 @@
             background: #0c0c0c;
             border-top: 1px solid #3e3e42;
             padding: 10px;
+            padding-bottom: 40px; /* Extra space for status bar */
             overflow-y: auto;
             font-family: 'Consolas', 'Monaco', monospace;
+            height: calc(100% - 15px); /* Ensure proper height calculation */
+            box-sizing: border-box;
         }
         
         .file-explorer {
@@ -86,6 +401,7 @@
         
         .chat-input {
             padding: 10px;
+            padding-bottom: 15px; /* Extra space for status bar */
             border-top: 1px solid #3e3e42;
         }
         
@@ -126,6 +442,8 @@
             align-items: center;
             padding: 0 10px;
             font-size: 12px;
+            z-index: 1000; /* Ensure it's on top but not blocking UI elements */
+            border-top: 1px solid #0058a3;
         }
         
         .status-item {
@@ -155,11 +473,13 @@
         .terminal-output {
             white-space: pre-wrap;
             color: #d4d4d4;
+            margin-bottom: 30px; /* Extra space for status bar */
         }
         
         .terminal-input {
             display: flex;
             margin-top: 10px;
+            margin-bottom: 15px; /* Extra space for status bar */
         }
         
         .terminal-prompt {
@@ -216,11 +536,16 @@
         .terminal-content {
             flex: 1;
             overflow-y: auto;
+            padding-bottom: 40px; /* Extra space for status bar */
+            box-sizing: border-box;
         }
         
         .task-queue {
             padding: 10px;
-            height: 100%;
+            padding-bottom: 50px; /* Extra space for status bar */
+            height: calc(100% - 60px); /* Adjust for padding */
+            overflow-y: auto;
+            box-sizing: border-box;
         }
         
         .task-header {
@@ -254,6 +579,7 @@
             display: flex;
             flex-direction: column;
             gap: 5px;
+            margin-bottom: 25px; /* Extra space at bottom for status bar */
         }
         
         .task-item {
@@ -334,6 +660,27 @@
             padding: 15px;
             height: calc(100% - 60px);
             overflow-y: auto;
+        }
+        
+        .explorer-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 15px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .explorer-header h3 {
+            margin: 0;
+        }
+        
+        .btn-primary {
+            background: #007acc !important;
+            color: white !important;
+        }
+        
+        .btn-primary:hover {
+            background: #0088cc !important;
         }
         
         .session-header {
@@ -720,6 +1067,11 @@
 </head>
 <body>
     <div class="ide-container">
+        <!-- Resize handles -->
+        <div class="resize-handle resize-handle-vertical resize-sidebar" id="resizeSidebar"></div>
+        <div class="resize-handle resize-handle-vertical resize-chat" id="resizeChat"></div>
+        <div class="resize-handle resize-handle-horizontal resize-terminal" id="resizeTerminal"></div>
+        
         <!-- File Explorer Sidebar -->
         <div class="sidebar">
             <div class="sidebar-header">
@@ -731,13 +1083,15 @@
             </div>
             
             <div class="file-explorer" id="explorerTab">
-                <h3>Explorer</h3>
+                <div class="explorer-header">
+                    <h3>Projects</h3>
+                    <div style="display: flex; gap: 8px;">
+                        <button class="btn-small btn-primary" onclick="showProjectWizard()">🚀 New</button>
+                        <button class="btn-small btn-secondary" onclick="showProjectManager()">📁 Manage</button>
+                    </div>
+                </div>
                 <ul class="file-tree" id="fileTree">
-                    <li>📁 project/</li>
-                    <li style="margin-left: 20px;">📄 main.py</li>
-                    <li style="margin-left: 20px;">📄 config.json</li>
-                    <li style="margin-left: 20px;">📁 src/</li>
-                    <li style="margin-left: 40px;">📄 app.py</li>
+                    <!-- File tree will be populated dynamically -->
                 </ul>
             </div>
             
@@ -910,9 +1264,44 @@
             </div>
         </div>
         
-        <!-- Monaco Editor -->
+        <!-- Monaco Editor with Tabs -->
         <div class="editor-container">
-            <div id="editor"></div>
+            <div class="editor-tabs" id="editorTabs">
+                <div class="tab-list" id="tabList">
+                    <div class="editor-tab active" data-tab="welcome">
+                        <span class="tab-icon">📝</span>
+                        <span class="tab-title">Welcome</span>
+                        <span class="tab-close" onclick="closeTab('welcome')">&times;</span>
+                    </div>
+                    <button class="tab-plus" onclick="newFile()" title="New File">+</button>
+                </div>
+                <div class="tab-controls">
+                    <button class="btn-tab" onclick="newFile()" title="New File">📄</button>
+                    <button class="btn-tab" onclick="togglePreview()" title="Toggle Preview" id="previewToggle">👁️</button>
+                </div>
+            </div>
+            
+            <div class="editor-content">
+                <div class="editor-pane" id="editorPane">
+                    <div id="editor"></div>
+                </div>
+                <div class="preview-pane" id="previewPane" style="display: none;">
+                    <div class="preview-header">
+                        <h4>Preview</h4>
+                        <select id="previewMode">
+                            <option value="auto">Auto Detect</option>
+                            <option value="markdown">Markdown</option>
+                            <option value="html">HTML</option>
+                            <option value="text">Plain Text</option>
+                        </select>
+                    </div>
+                    <div class="preview-content" id="previewContent">
+                        <div class="preview-placeholder">
+                            Select a file to preview
+                        </div>
+                    </div>
+                </div>
+            </div>
         </div>
         
         <!-- Chat Interface -->
@@ -1070,6 +1459,23 @@
 
     <!-- Monaco Editor -->
     <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
+    <script src="/static/js/project-wizard.js"></script>
+    <script src="/static/js/project-manager.js"></script>
     <script src="/static/js/ide.js"></script>
+    <script>
+        function showProjectWizard() {
+            if (!window.projectWizard) {
+                window.projectWizard = new ProjectWizard(window.ide);
+            }
+            window.projectWizard.show();
+        }
+        
+        function showProjectManager() {
+            if (!window.projectManager) {
+                window.projectManager = new ProjectManager(window.ide);
+            }
+            window.projectManager.show();
+        }
+    </script>
 </body>
 </html>
