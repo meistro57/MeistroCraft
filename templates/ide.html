@@ -1,0 +1,1075 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeistroCraft IDE</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        .ide-container {
+            display: grid;
+            grid-template-areas: 
+                "sidebar editor chat"
+                "sidebar terminal chat";
+            grid-template-columns: 250px 1fr 300px;
+            grid-template-rows: 1fr 200px;
+            height: 100vh;
+        }
+        
+        .sidebar {
+            grid-area: sidebar;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            padding: 10px;
+        }
+        
+        .editor-container {
+            grid-area: editor;
+            background: #1e1e1e;
+            position: relative;
+        }
+        
+        .chat-container {
+            grid-area: chat;
+            background: #2d2d30;
+            border-left: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+        }
+        
+        .terminal-container {
+            grid-area: terminal;
+            background: #0c0c0c;
+            border-top: 1px solid #3e3e42;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+        }
+        
+        .file-explorer {
+            height: 100%;
+        }
+        
+        .file-tree {
+            list-style: none;
+            padding-left: 0;
+        }
+        
+        .file-tree li {
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 3px;
+        }
+        
+        .file-tree li:hover {
+            background: #37373d;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        
+        .chat-input {
+            padding: 10px;
+            border-top: 1px solid #3e3e42;
+        }
+        
+        .chat-input input {
+            width: 100%;
+            padding: 8px;
+            background: #3c3c3c;
+            border: 1px solid #5e5e5e;
+            color: #d4d4d4;
+            border-radius: 3px;
+        }
+        
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 5px;
+        }
+        
+        .message.user {
+            background: #094771;
+            margin-left: 20px;
+        }
+        
+        .message.ai {
+            background: #1a4d1a;
+            margin-right: 20px;
+        }
+        
+        .status-bar {
+            position: fixed;
+            bottom: 0;
+            left: 0;
+            right: 0;
+            height: 25px;
+            background: #007acc;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+        }
+        
+        .status-item {
+            margin-right: 15px;
+        }
+        
+        .connection-status {
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            margin-right: 5px;
+        }
+        
+        .connected {
+            background: #4caf50;
+        }
+        
+        .disconnected {
+            background: #f44336;
+        }
+        
+        #editor {
+            width: 100%;
+            height: 100%;
+        }
+        
+        .terminal-output {
+            white-space: pre-wrap;
+            color: #d4d4d4;
+        }
+        
+        .terminal-input {
+            display: flex;
+            margin-top: 10px;
+        }
+        
+        .terminal-prompt {
+            color: #4caf50;
+            margin-right: 5px;
+        }
+        
+        .terminal-input input {
+            flex: 1;
+            background: transparent;
+            border: none;
+            color: #d4d4d4;
+            outline: none;
+            font-family: inherit;
+        }
+        
+        .terminal-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 8px 10px;
+            border-bottom: 1px solid #3e3e42;
+            background: #2d2d30;
+        }
+        
+        .terminal-header h4 {
+            margin: 0;
+            font-size: 14px;
+            color: #d4d4d4;
+        }
+        
+        .terminal-tabs {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .tab {
+            padding: 4px 8px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+        
+        .tab.active {
+            background: #007acc;
+            color: white;
+        }
+        
+        .tab:hover {
+            background: #37373d;
+        }
+        
+        .terminal-content {
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .task-queue {
+            padding: 10px;
+            height: 100%;
+        }
+        
+        .task-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .task-header h5 {
+            margin: 0;
+            color: #d4d4d4;
+            font-size: 13px;
+        }
+        
+        .btn-small {
+            padding: 2px 6px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 11px;
+        }
+        
+        .btn-small:hover {
+            background: #0058a3;
+        }
+        
+        .task-list {
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .task-item {
+            display: flex;
+            align-items: center;
+            padding: 6px 8px;
+            background: #3c3c3c;
+            border-radius: 3px;
+            border-left: 3px solid #666;
+        }
+        
+        .task-item.completed {
+            border-left-color: #4caf50;
+        }
+        
+        .task-item.running {
+            border-left-color: #ff9800;
+        }
+        
+        .task-item.pending {
+            border-left-color: #2196f3;
+        }
+        
+        .task-item.failed {
+            border-left-color: #f44336;
+        }
+        
+        .task-icon {
+            margin-right: 8px;
+            font-size: 12px;
+        }
+        
+        .task-name {
+            flex: 1;
+            color: #d4d4d4;
+            font-size: 12px;
+        }
+        
+        .task-time {
+            color: #a0a0a0;
+            font-size: 11px;
+        }
+        
+        .sidebar-header {
+            padding: 10px;
+            border-bottom: 1px solid #3e3e42;
+            background: #2d2d30;
+        }
+        
+        .sidebar-tabs {
+            display: flex;
+            gap: 5px;
+        }
+        
+        .sidebar-tab {
+            padding: 6px 12px;
+            cursor: pointer;
+            border-radius: 3px;
+            font-size: 12px;
+            color: #a0a0a0;
+            background: #3c3c3c;
+        }
+        
+        .sidebar-tab.active {
+            background: #007acc;
+            color: white;
+        }
+        
+        .sidebar-tab:hover {
+            background: #37373d;
+        }
+        
+        .sidebar-tab.active:hover {
+            background: #0058a3;
+        }
+        
+        .session-manager {
+            padding: 15px;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+        }
+        
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+        
+        .session-header h3 {
+            margin: 0;
+            color: #d4d4d4;
+            font-size: 16px;
+        }
+        
+        .current-session, .recent-sessions {
+            margin-bottom: 20px;
+        }
+        
+        .current-session h4, .recent-sessions h4 {
+            margin: 0 0 10px 0;
+            color: #d4d4d4;
+            font-size: 14px;
+            border-bottom: 1px solid #3e3e42;
+            padding-bottom: 5px;
+        }
+        
+        .session-item {
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            background: #3c3c3c;
+            border-radius: 5px;
+            margin-bottom: 8px;
+            border-left: 3px solid #007acc;
+        }
+        
+        .session-item.active {
+            border-left-color: #4caf50;
+            background: #2d4a2d;
+        }
+        
+        .session-icon {
+            margin-right: 10px;
+            font-size: 14px;
+        }
+        
+        .session-details {
+            flex: 1;
+        }
+        
+        .session-name {
+            color: #d4d4d4;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .session-id, .session-time {
+            color: #a0a0a0;
+            font-size: 11px;
+            margin-top: 2px;
+        }
+        
+        .btn-tiny {
+            padding: 2px 6px;
+            background: #007acc;
+            color: white;
+            border: none;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 10px;
+        }
+        
+        .btn-tiny:hover {
+            background: #0058a3;
+        }
+        
+        .session-list {
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        
+        .status-icon {
+            margin-right: 3px;
+        }
+        
+        .status-item {
+            cursor: pointer;
+        }
+        
+        .status-item:hover {
+            background: rgba(255,255,255,0.1);
+            border-radius: 3px;
+            padding: 2px 4px;
+            margin: -2px -4px;
+        }
+        
+        .modal {
+            position: fixed;
+            z-index: 1000;
+            left: 0;
+            top: 0;
+            width: 100%;
+            height: 100%;
+            background-color: rgba(0,0,0,0.5);
+        }
+        
+        .modal-content {
+            background-color: #2d2d30;
+            margin: 5% auto;
+            padding: 0;
+            border: 1px solid #3e3e42;
+            width: 80%;
+            max-width: 600px;
+            border-radius: 5px;
+            color: #d4d4d4;
+        }
+        
+        .modal-header {
+            background: #252526;
+            padding: 15px 20px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .modal-header h3 {
+            margin: 0;
+            color: #d4d4d4;
+        }
+        
+        .close {
+            color: #a0a0a0;
+            font-size: 28px;
+            font-weight: bold;
+            cursor: pointer;
+        }
+        
+        .close:hover {
+            color: #d4d4d4;
+        }
+        
+        .modal-body {
+            padding: 20px;
+        }
+        
+        .usage-section {
+            margin-bottom: 25px;
+        }
+        
+        .usage-section h4 {
+            margin: 0 0 15px 0;
+            color: #d4d4d4;
+            border-bottom: 1px solid #3e3e42;
+            padding-bottom: 5px;
+        }
+        
+        .usage-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+        }
+        
+        .usage-card {
+            background: #3c3c3c;
+            padding: 15px;
+            border-radius: 5px;
+            text-align: center;
+            border-left: 3px solid #007acc;
+        }
+        
+        .usage-label {
+            font-size: 12px;
+            color: #a0a0a0;
+            margin-bottom: 5px;
+        }
+        
+        .usage-value {
+            font-size: 24px;
+            font-weight: bold;
+            color: #d4d4d4;
+            margin-bottom: 5px;
+        }
+        
+        .usage-cost {
+            font-size: 14px;
+            color: #4caf50;
+        }
+        
+        .session-stats {
+            background: #3c3c3c;
+            padding: 15px;
+            border-radius: 5px;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            margin-bottom: 8px;
+            font-size: 14px;
+        }
+        
+        .stat-item:last-child {
+            margin-bottom: 0;
+            border-top: 1px solid #5e5e5e;
+            padding-top: 8px;
+            font-weight: bold;
+        }
+        
+        .limit-bars {
+            space-y: 15px;
+        }
+        
+        .limit-bar {
+            margin-bottom: 15px;
+        }
+        
+        .limit-bar label {
+            display: block;
+            margin-bottom: 5px;
+            font-size: 13px;
+            color: #d4d4d4;
+        }
+        
+        .progress-bar {
+            background: #3c3c3c;
+            border-radius: 10px;
+            height: 8px;
+            margin-bottom: 5px;
+        }
+        
+        .progress {
+            background: linear-gradient(90deg, #4caf50, #ff9800);
+            height: 100%;
+            border-radius: 10px;
+            transition: width 0.3s ease;
+        }
+        
+        .limit-bar span {
+            font-size: 12px;
+            color: #a0a0a0;
+        }
+        
+        .settings-panel {
+            padding: 15px;
+            height: calc(100% - 60px);
+            overflow-y: auto;
+        }
+        
+        .settings-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+            border-bottom: 1px solid #3e3e42;
+            padding-bottom: 10px;
+        }
+        
+        .settings-header h3 {
+            margin: 0;
+            color: #d4d4d4;
+            font-size: 18px;
+        }
+        
+        .settings-sections {
+            margin-bottom: 20px;
+        }
+        
+        .settings-section {
+            margin-bottom: 25px;
+            background: #3c3c3c;
+            border-radius: 5px;
+            padding: 15px;
+        }
+        
+        .settings-section h4 {
+            margin: 0 0 15px 0;
+            color: #d4d4d4;
+            font-size: 14px;
+            border-bottom: 1px solid #5e5e5e;
+            padding-bottom: 8px;
+        }
+        
+        .setting-item {
+            margin-bottom: 15px;
+        }
+        
+        .setting-item:last-child {
+            margin-bottom: 0;
+        }
+        
+        .setting-item label {
+            display: block;
+            margin-bottom: 5px;
+            color: #d4d4d4;
+            font-size: 13px;
+            font-weight: 500;
+        }
+        
+        .setting-item input,
+        .setting-item select {
+            width: 100%;
+            padding: 8px;
+            background: #2d2d30;
+            border: 1px solid #5e5e5e;
+            color: #d4d4d4;
+            border-radius: 3px;
+            font-size: 13px;
+        }
+        
+        .setting-item input:focus,
+        .setting-item select:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+        
+        .setting-item input[type="range"] {
+            width: calc(100% - 50px);
+            margin-right: 10px;
+        }
+        
+        .setting-item input[type="number"] {
+            width: 80px;
+        }
+        
+        .setting-item.checkbox {
+            display: flex;
+            align-items: center;
+        }
+        
+        .setting-item.checkbox input {
+            width: auto;
+            margin-right: 8px;
+        }
+        
+        .setting-item.checkbox label {
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        .setting-item small {
+            display: block;
+            margin-top: 3px;
+            color: #a0a0a0;
+            font-size: 11px;
+        }
+        
+        .settings-footer {
+            display: flex;
+            gap: 10px;
+            padding-top: 15px;
+            border-top: 1px solid #3e3e42;
+        }
+        
+        .btn-primary {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .btn-primary:hover {
+            background: #0058a3;
+        }
+        
+        .btn-secondary {
+            background: #3c3c3c;
+            color: #d4d4d4;
+            border: 1px solid #5e5e5e;
+            padding: 8px 16px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 13px;
+        }
+        
+        .btn-secondary:hover {
+            background: #37373d;
+        }
+    </style>
+</head>
+<body>
+    <div class="ide-container">
+        <!-- File Explorer Sidebar -->
+        <div class="sidebar">
+            <div class="sidebar-header">
+                <div class="sidebar-tabs">
+                    <span class="sidebar-tab active" data-tab="explorer">📁 Files</span>
+                    <span class="sidebar-tab" data-tab="sessions">💬 Sessions</span>
+                    <span class="sidebar-tab" data-tab="settings">⚙️ Settings</span>
+                </div>
+            </div>
+            
+            <div class="file-explorer" id="explorerTab">
+                <h3>Explorer</h3>
+                <ul class="file-tree" id="fileTree">
+                    <li>📁 project/</li>
+                    <li style="margin-left: 20px;">📄 main.py</li>
+                    <li style="margin-left: 20px;">📄 config.json</li>
+                    <li style="margin-left: 20px;">📁 src/</li>
+                    <li style="margin-left: 40px;">📄 app.py</li>
+                </ul>
+            </div>
+            
+            <div class="session-manager" id="sessionsTab" style="display: none;">
+                <div class="session-header">
+                    <h3>Sessions</h3>
+                    <button class="btn-small" onclick="createNewSession()">+ New</button>
+                </div>
+                
+                <div class="current-session">
+                    <h4>Current Session</h4>
+                    <div class="session-info">
+                        <div class="session-item active">
+                            <span class="session-icon">🟢</span>
+                            <div class="session-details">
+                                <div class="session-name" id="currentSessionName">Unnamed Session</div>
+                                <div class="session-id" id="currentSessionId">web-123456</div>
+                            </div>
+                            <button class="btn-tiny" onclick="saveCurrentSession()">Save</button>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="recent-sessions">
+                    <h4>Recent Sessions</h4>
+                    <div class="session-list" id="sessionList">
+                        <div class="session-item">
+                            <span class="session-icon">💾</span>
+                            <div class="session-details">
+                                <div class="session-name">Python API Project</div>
+                                <div class="session-time">2 hours ago</div>
+                            </div>
+                            <button class="btn-tiny" onclick="loadSession('session-1')">Load</button>
+                        </div>
+                        <div class="session-item">
+                            <span class="session-icon">💾</span>
+                            <div class="session-details">
+                                <div class="session-name">React Dashboard</div>
+                                <div class="session-time">1 day ago</div>
+                            </div>
+                            <button class="btn-tiny" onclick="loadSession('session-2')">Load</button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="settings-panel" id="settingsTab" style="display: none;">
+                <div class="settings-header">
+                    <h3>Settings</h3>
+                    <button class="btn-small" onclick="resetSettings()">Reset</button>
+                </div>
+                
+                <div class="settings-sections">
+                    <!-- API Configuration -->
+                    <div class="settings-section">
+                        <h4>🔑 API Configuration</h4>
+                        <div class="setting-item">
+                            <label for="openaiKey">OpenAI API Key</label>
+                            <input type="password" id="openaiKey" placeholder="sk-..." />
+                            <small>Your OpenAI API key for GPT models</small>
+                        </div>
+                        <div class="setting-item">
+                            <label for="anthropicKey">Anthropic API Key</label>
+                            <input type="password" id="anthropicKey" placeholder="sk-ant-..." />
+                            <small>Your Anthropic API key for Claude models</small>
+                        </div>
+                        <div class="setting-item">
+                            <label for="defaultModel">Default AI Model</label>
+                            <select id="defaultModel">
+                                <option value="gpt-4">GPT-4</option>
+                                <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="claude-3-sonnet">Claude 3 Sonnet</option>
+                                <option value="claude-3-haiku">Claude 3 Haiku</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Editor Settings -->
+                    <div class="settings-section">
+                        <h4>📝 Editor</h4>
+                        <div class="setting-item">
+                            <label for="editorTheme">Theme</label>
+                            <select id="editorTheme">
+                                <option value="vs-dark">Dark (VS Code)</option>
+                                <option value="vs">Light</option>
+                                <option value="hc-black">High Contrast</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="fontSize">Font Size</label>
+                            <input type="range" id="fontSize" min="10" max="24" value="14" />
+                            <span id="fontSizeValue">14px</span>
+                        </div>
+                        <div class="setting-item">
+                            <label for="tabSize">Tab Size</label>
+                            <input type="number" id="tabSize" min="2" max="8" value="4" />
+                        </div>
+                        <div class="setting-item checkbox">
+                            <input type="checkbox" id="wordWrap" checked />
+                            <label for="wordWrap">Word Wrap</label>
+                        </div>
+                        <div class="setting-item checkbox">
+                            <input type="checkbox" id="minimap" checked />
+                            <label for="minimap">Show Minimap</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Usage Limits -->
+                    <div class="settings-section">
+                        <h4>💰 Usage Limits</h4>
+                        <div class="setting-item">
+                            <label for="dailyLimit">Daily Spending Limit ($)</label>
+                            <input type="number" id="dailyLimit" min="0" step="0.01" value="5.00" />
+                        </div>
+                        <div class="setting-item">
+                            <label for="monthlyLimit">Monthly Spending Limit ($)</label>
+                            <input type="number" id="monthlyLimit" min="0" step="0.01" value="50.00" />
+                        </div>
+                        <div class="setting-item checkbox">
+                            <input type="checkbox" id="lowBalanceAlerts" checked />
+                            <label for="lowBalanceAlerts">Low Balance Alerts</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Terminal Settings -->
+                    <div class="settings-section">
+                        <h4>🖥️ Terminal</h4>
+                        <div class="setting-item">
+                            <label for="terminalFont">Font Family</label>
+                            <select id="terminalFont">
+                                <option value="Consolas, Monaco, monospace">Consolas</option>
+                                <option value="Fira Code, monospace">Fira Code</option>
+                                <option value="Source Code Pro, monospace">Source Code Pro</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
+                            <label for="terminalFontSize">Font Size</label>
+                            <input type="range" id="terminalFontSize" min="10" max="18" value="12" />
+                            <span id="terminalFontSizeValue">12px</span>
+                        </div>
+                        <div class="setting-item checkbox">
+                            <input type="checkbox" id="terminalSound" />
+                            <label for="terminalSound">Sound Effects</label>
+                        </div>
+                    </div>
+                    
+                    <!-- Auto-save & Backup -->
+                    <div class="settings-section">
+                        <h4>💾 Auto-save & Backup</h4>
+                        <div class="setting-item checkbox">
+                            <input type="checkbox" id="autoSave" checked />
+                            <label for="autoSave">Auto-save Files</label>
+                        </div>
+                        <div class="setting-item">
+                            <label for="autoSaveDelay">Auto-save Delay (seconds)</label>
+                            <input type="number" id="autoSaveDelay" min="1" max="60" value="5" />
+                        </div>
+                        <div class="setting-item checkbox">
+                            <input type="checkbox" id="sessionBackup" checked />
+                            <label for="sessionBackup">Auto-backup Sessions</label>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="settings-footer">
+                    <button class="btn-primary" onclick="saveSettings()">Save Settings</button>
+                    <button class="btn-secondary" onclick="exportSettings()">Export</button>
+                    <button class="btn-secondary" onclick="importSettings()">Import</button>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Monaco Editor -->
+        <div class="editor-container">
+            <div id="editor"></div>
+        </div>
+        
+        <!-- Chat Interface -->
+        <div class="chat-container">
+            <div class="chat-messages" id="chatMessages">
+                <div class="message ai">
+                    <strong>MeistroCraft AI:</strong> Welcome to the IDE! How can I help you code today?
+                </div>
+            </div>
+            <div class="chat-input">
+                <input type="text" id="chatInput" placeholder="Ask me anything about your code..." 
+                       onkeypress="handleChatInput(event)">
+            </div>
+        </div>
+        
+        <!-- Terminal -->
+        <div class="terminal-container">
+            <div class="terminal-header">
+                <h4>Terminal</h4>
+                <div class="terminal-tabs">
+                    <span class="tab active">Tasks</span>
+                    <span class="tab">Terminal</span>
+                </div>
+            </div>
+            <div class="terminal-content">
+                <div class="terminal-output" id="terminalOutput">
+                    Welcome to MeistroCraft IDE Terminal
+                    $ 
+                </div>
+                <div class="task-queue" id="taskQueue" style="display: none;">
+                    <div class="task-header">
+                        <h5>Background Tasks</h5>
+                        <button class="btn-small" onclick="refreshTasks()">Refresh</button>
+                    </div>
+                    <div class="task-list" id="taskList">
+                        <div class="task-item completed">
+                            <span class="task-icon">✓</span>
+                            <span class="task-name">Install dependencies</span>
+                            <span class="task-time">2 min ago</span>
+                        </div>
+                        <div class="task-item running">
+                            <span class="task-icon">⏳</span>
+                            <span class="task-name">Running tests</span>
+                            <span class="task-time">Running...</span>
+                        </div>
+                        <div class="task-item pending">
+                            <span class="task-icon">📋</span>
+                            <span class="task-name">Build project</span>
+                            <span class="task-time">Queued</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div class="terminal-input">
+                <span class="terminal-prompt">$</span>
+                <input type="text" id="terminalInput" placeholder="Enter command..." 
+                       onkeypress="handleTerminalInput(event)">
+            </div>
+        </div>
+    </div>
+    
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <div class="status-item">
+            <span class="connection-status" id="connectionStatus"></span>
+            <span id="connectionText">Connecting...</span>
+        </div>
+        <div class="status-item">Session: <span id="sessionId">-</span></div>
+        <div class="status-item">
+            <span class="status-icon">🪙</span>
+            Tokens: <span id="tokenCount">0</span>
+        </div>
+        <div class="status-item">
+            <span class="status-icon">💰</span>
+            Cost: $<span id="costAmount">0.00</span>
+        </div>
+        <div class="status-item">
+            <span class="status-icon">📊</span>
+            <span id="apiStatus">OpenAI: ✓ Anthropic: ✓</span>
+        </div>
+        <div class="status-item">
+            <span class="status-icon">⏱️</span>
+            <span id="sessionTime">00:00</span>
+        </div>
+    </div>
+    
+    <!-- Token Usage Modal -->
+    <div id="tokenModal" class="modal" style="display: none;">
+        <div class="modal-content">
+            <div class="modal-header">
+                <h3>Token Usage & Cost Monitoring</h3>
+                <span class="close" onclick="closeTokenModal()">&times;</span>
+            </div>
+            <div class="modal-body">
+                <div class="usage-section">
+                    <h4>Today's Usage</h4>
+                    <div class="usage-grid">
+                        <div class="usage-card">
+                            <div class="usage-label">OpenAI Tokens</div>
+                            <div class="usage-value" id="openaiTokens">1,250</div>
+                            <div class="usage-cost">$0.0125</div>
+                        </div>
+                        <div class="usage-card">
+                            <div class="usage-label">Anthropic Tokens</div>
+                            <div class="usage-value" id="anthropicTokens">2,100</div>
+                            <div class="usage-cost">$0.0210</div>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="usage-section">
+                    <h4>This Session</h4>
+                    <div class="session-stats">
+                        <div class="stat-item">
+                            <span>Duration:</span>
+                            <span id="sessionDuration">15 minutes</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Requests:</span>
+                            <span id="sessionRequests">12</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Total Tokens:</span>
+                            <span id="sessionTokens">1,850</span>
+                        </div>
+                        <div class="stat-item">
+                            <span>Session Cost:</span>
+                            <span id="sessionCost">$0.0185</span>
+                        </div>
+                    </div>
+                </div>
+                
+                <div class="usage-section">
+                    <h4>Usage Limits</h4>
+                    <div class="limit-bars">
+                        <div class="limit-bar">
+                            <label>Daily Limit ($5.00)</label>
+                            <div class="progress-bar">
+                                <div class="progress" style="width: 35%"></div>
+                            </div>
+                            <span>$1.75 used</span>
+                        </div>
+                        <div class="limit-bar">
+                            <label>Monthly Limit ($50.00)</label>
+                            <div class="progress-bar">
+                                <div class="progress" style="width: 15%"></div>
+                            </div>
+                            <span>$7.50 used</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Monaco Editor -->
+    <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
+    <script src="/static/js/ide.js"></script>
+</body>
+</html>
