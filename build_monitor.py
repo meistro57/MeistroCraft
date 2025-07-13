@@ -6,6 +6,7 @@ Tracks pipeline status, analyzes build results, and provides intelligent insight
 import json
 import logging
 import time
+import asyncio
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -82,12 +83,21 @@ class BuildStatusMonitor:
             Build status summary with current state and trends
         """
         try:
-            # Get recent workflow runs
-            runs = self.github_actions.get_workflow_runs(
-                repo_name=repo_name,
-                branch=branch,
-                limit=50
-            )
+            # Use batched request if GitHub client supports it
+            if hasattr(self.github_actions.github, 'get_multiple_workflow_runs_batch'):
+                batch_results = self.github_actions.github.get_multiple_workflow_runs_batch([repo_name], 50)
+                runs = batch_results.get(repo_name, [])
+                
+                # Filter by branch if specified
+                if branch:
+                    runs = [run for run in runs if run.get('head_branch') == branch]
+            else:
+                # Fallback to original method
+                runs = self.github_actions.get_workflow_runs(
+                    repo_name=repo_name,
+                    branch=branch,
+                    limit=50
+                )
             
             if not runs:
                 return {
@@ -955,3 +965,206 @@ class BuildStatusMonitor:
                 error_patterns.append(line.strip())
         
         return error_patterns[-10:]  # Return last 10 error patterns
+    
+    def get_batch_build_status(self, repo_names: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Get build status for multiple repositories using optimized batching.
+        
+        Args:
+            repo_names: List of repository names (owner/repo)
+            
+        Returns:
+            Dictionary mapping repo names to their build status
+        """
+        if not repo_names:
+            return {}
+        
+        try:
+            # Use batched GitHub API requests for better performance
+            if hasattr(self.github_actions.github, 'get_multiple_workflow_runs_batch'):
+                self.logger.info(f"Using optimized batch request for {len(repo_names)} repositories")
+                batch_results = self.github_actions.github.get_multiple_workflow_runs_batch(repo_names, 50)
+            else:
+                # Fallback to individual requests
+                self.logger.info(f"Using individual requests for {len(repo_names)} repositories")
+                batch_results = {}
+                for repo in repo_names:
+                    try:
+                        runs = self.github_actions.get_workflow_runs(repo_name=repo, limit=50)
+                        batch_results[repo] = runs
+                    except Exception as e:
+                        self.logger.error(f"Failed to get runs for {repo}: {e}")
+                        batch_results[repo] = []
+            
+            # Process each repository's data
+            results = {}
+            for repo_name, runs in batch_results.items():
+                try:
+                    if not runs:
+                        results[repo_name] = {
+                            'status': 'no_builds',
+                            'message': 'No workflow runs found',
+                            'overall_health': 'unknown'
+                        }
+                        continue
+                    
+                    # Analyze builds by branch
+                    branch_analysis = self._analyze_builds_by_branch(runs)
+                    
+                    # Calculate overall health metrics
+                    health_metrics = self._calculate_health_metrics(runs)
+                    
+                    # Detect trends and issues
+                    trends = self._detect_build_trends(runs)
+                    
+                    results[repo_name] = {
+                        'status': health_metrics['overall_status'],
+                        'overall_health': health_metrics['health_score'],
+                        'branches': branch_analysis,
+                        'metrics': health_metrics,
+                        'trends': trends,
+                        'last_updated': datetime.now().isoformat()
+                    }
+                    
+                except Exception as e:
+                    self.logger.error(f"Failed to analyze builds for {repo_name}: {e}")
+                    results[repo_name] = {
+                        'status': 'error',
+                        'message': f'Failed to analyze builds: {e}',
+                        'error': str(e)
+                    }
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get batch build status: {e}")
+            return {repo: {'status': 'error', 'error': str(e)} for repo in repo_names}
+    
+    async def get_batch_build_status_async(self, repo_names: List[str]) -> Dict[str, Dict[str, Any]]:
+        """
+        Get build status for multiple repositories using high-performance async processing.
+        
+        Args:
+            repo_names: List of repository names (owner/repo)
+            
+        Returns:
+            Dictionary mapping repo names to their build status
+        """
+        if not repo_names:
+            return {}
+        
+        start_time = time.time()
+        self.logger.info(f"Starting async batch build status for {len(repo_names)} repositories")
+        
+        try:
+            # Prepare async requests for workflow runs
+            requests = []
+            for repo_name in repo_names:
+                requests.append({
+                    'method': 'GET',
+                    'endpoint': f'/repos/{repo_name}/actions/runs',
+                    'params': {'per_page': 50},
+                    'repo_name': repo_name  # Add context for processing
+                })
+            
+            # Execute async batch requests if available
+            if hasattr(self.github_actions.github, 'batch_github_requests_async'):
+                self.logger.info("Using enhanced async batch processing")
+                batch_results = await self.github_actions.github.batch_github_requests_async(
+                    requests, max_concurrent=5
+                )
+                
+                # Process async results
+                results = {}
+                for i, result in enumerate(batch_results):
+                    repo_name = requests[i]['repo_name']
+                    
+                    if result.get('success', False):
+                        runs = result.get('data', {}).get('workflow_runs', [])
+                        results[repo_name] = await self._analyze_builds_async(repo_name, runs)
+                    else:
+                        error_msg = result.get('error', 'Unknown error')
+                        self.logger.error(f"Failed to get runs for {repo_name}: {error_msg}")
+                        results[repo_name] = {
+                            'status': 'error',
+                            'message': f'Failed to fetch builds: {error_msg}',
+                            'error': error_msg
+                        }
+            else:
+                # Fallback to sync batch processing
+                self.logger.info("Falling back to sync batch processing")
+                results = self.get_batch_build_status(repo_names)
+            
+            # Log performance metrics
+            total_time = time.time() - start_time
+            self.logger.info(f"Async batch processing completed in {total_time:.2f}s for {len(repo_names)} repos")
+            
+            # Record performance metric
+            if hasattr(self.github_actions.github, '_record_performance_metric'):
+                self.github_actions.github._record_performance_metric(
+                    'batch_build_status_time',
+                    total_time * 1000,  # Convert to ms
+                    {
+                        'repo_count': len(repo_names),
+                        'file': 'build_monitor.py',
+                        'function': 'get_batch_build_status_async'
+                    }
+                )
+            
+            return results
+            
+        except Exception as e:
+            self.logger.error(f"Failed to get async batch build status: {e}")
+            return {repo: {'status': 'error', 'error': str(e)} for repo in repo_names}
+    
+    async def _analyze_builds_async(self, repo_name: str, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
+        """Async version of build analysis for better performance."""
+        try:
+            if not runs:
+                return {
+                    'status': 'no_builds',
+                    'message': 'No workflow runs found',
+                    'overall_health': 'unknown'
+                }
+            
+            # Use existing analysis methods (these are fast and don't need async)
+            branch_analysis = self._analyze_builds_by_branch(runs)
+            health_metrics = self._calculate_health_metrics(runs)
+            trends = self._detect_build_trends(runs)
+            
+            return {
+                'status': health_metrics['overall_status'],
+                'overall_health': health_metrics['health_score'],
+                'branches': branch_analysis,
+                'metrics': health_metrics,
+                'trends': trends,
+                'last_updated': datetime.now().isoformat(),
+                'processed_async': True
+            }
+            
+        except Exception as e:
+            self.logger.error(f"Failed to analyze builds for {repo_name}: {e}")
+            return {
+                'status': 'error',
+                'message': f'Failed to analyze builds: {e}',
+                'error': str(e)
+            }
+    
+    def get_optimization_metrics(self) -> Dict[str, Any]:
+        """Get performance metrics for build monitoring."""
+        github_metrics = {}
+        if hasattr(self.github_actions.github, 'get_performance_metrics'):
+            github_metrics = self.github_actions.github.get_performance_metrics()
+        
+        return {
+            'github_client_metrics': github_metrics,
+            'cache_stats': {
+                'build_cache_size': len(self._build_cache),
+                'metrics_cache_size': len(self._metrics_cache)
+            },
+            'monitoring_config': {
+                'failure_threshold': self.failure_threshold,
+                'success_rate_threshold': self.success_rate_threshold,
+                'performance_degradation_threshold': self.performance_degradation_threshold
+            }
+        }

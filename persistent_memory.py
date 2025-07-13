@@ -26,6 +26,10 @@ class MemoryType(Enum):
     LEARNED_PATTERNS = "learned_patterns"
     ERROR_SOLUTIONS = "error_solutions"
     DEPENDENCIES = "dependencies"
+    PERFORMANCE_DATA = "performance_data"
+    ANALYSIS_RESULT = "analysis_result"
+    OPTIMIZATION_CANDIDATE = "optimization_candidate"
+    OPTIMIZATION_RESULT = "optimization_result"
 
 class MemoryPriority(Enum):
     CRITICAL = "critical"      # Never auto-delete

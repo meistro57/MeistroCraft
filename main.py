@@ -29,6 +29,7 @@ from github_workflows import create_workflow_integration, WorkflowIntegration, G
 from cicd_integration import create_cicd_integration, GitHubActionsManager, CICDIntegrationError
 from build_monitor import BuildStatusMonitor
 from deployment_automation import create_deployment_automation, DeploymentAutomation
+from self_optimizer import create_self_optimizer, SelfOptimizer
 
 def load_config(config_path: str = "config/config.json") -> Dict[str, Any]:
     """Load configuration from JSON file."""
@@ -1256,6 +1257,13 @@ def main():
     build_monitor = BuildStatusMonitor(cicd_manager, config) if cicd_manager else None
     deployment_automation = create_deployment_automation(cicd_manager, build_monitor, config) if cicd_manager and build_monitor else None
     
+    # Initialize Self-Optimization System
+    self_optimizer = create_self_optimizer(persistent_memory, config)
+    
+    # Wire up performance tracking
+    if github_client:
+        github_client.set_performance_tracker(self_optimizer)
+    
     # Show memory status
     memory_summary = persistent_memory.get_memory_summary()
     print(f"  {memory_summary}")
@@ -1279,6 +1287,13 @@ def main():
     else:
         print(f"  🐙 GitHub integration: disabled")
         print(f"  🚀 CI/CD integration: disabled (requires GitHub)")
+    
+    # Self-optimization status
+    if self_optimizer.optimization_enabled:
+        print(f"  🧠 Self-optimization: enabled (Learning & auto-improving)")
+        print(f"  📊 Performance tracking: active")
+    else:
+        print(f"  🧠 Self-optimization: disabled")
     
     print(f"Configuration loaded:")
     print(f"  Claude model: {config.get('claude_model', 'default')}")
@@ -1510,6 +1525,228 @@ def main():
         print(f"   Corrupted files removed: {stats['corrupted_deleted']}")
         print(f"   Sessions remaining: {stats['total_remaining']}")
     
+    elif len(sys.argv) > 1 and sys.argv[1] == "--performance":
+        # Performance metrics and benchmarking
+        if not github_client:
+            print("❌ Performance testing requires GitHub integration")
+            sys.exit(1)
+        
+        if len(sys.argv) > 2 and sys.argv[2] == "benchmark":
+            # Performance benchmark
+            if len(sys.argv) > 3:
+                repo_names = sys.argv[3].split(',')
+            else:
+                # Default test repositories
+                repo_names = [
+                    'microsoft/vscode',
+                    'facebook/react',
+                    'google/tensorflow',
+                    'torvalds/linux',
+                    'nodejs/node'
+                ]
+            
+            print(f"🚀 Running GitHub API performance benchmark with {len(repo_names)} repositories...")
+            print(f"   Repositories: {', '.join(repo_names)}")
+            
+            # Clear cache for fair comparison
+            if hasattr(github_client, 'clear_cache'):
+                github_client.clear_cache()
+                print("   Cleared cache for baseline measurement")
+            
+            import time
+            start_time = time.time()
+            
+            # Test batch request if available
+            if hasattr(github_client, 'get_multiple_workflow_runs_batch') and build_monitor:
+                print("\n📊 Testing optimized batch request...")
+                batch_start = time.time()
+                batch_results = build_monitor.get_batch_build_status(repo_names)
+                batch_time = time.time() - batch_start
+                
+                successful_repos = sum(1 for result in batch_results.values() if result.get('status') != 'error')
+                print(f"   ✅ Processed {successful_repos}/{len(repo_names)} repositories in {batch_time:.2f}s")
+                print(f"   ⚡ Average time per repo: {batch_time/len(repo_names):.3f}s")
+                
+                # Show cache metrics
+                if hasattr(github_client, 'get_performance_metrics'):
+                    metrics = github_client.get_performance_metrics()
+                    cache_stats = metrics.get('cache_stats', {})
+                    print(f"   💾 Cache hits: {cache_stats.get('cache_size', 0)} entries")
+                    print(f"   🎯 Rate limit remaining: {cache_stats.get('requests_remaining', 'unknown')}")
+            else:
+                print("❌ Optimized batching not available - using individual requests")
+                individual_start = time.time()
+                for repo in repo_names[:3]:  # Test only first 3 to avoid rate limits
+                    try:
+                        if build_monitor:
+                            build_monitor.get_build_status(repo)
+                        print(f"   ✅ Processed {repo}")
+                    except Exception as e:
+                        print(f"   ❌ Failed {repo}: {e}")
+                individual_time = time.time() - individual_start
+                print(f"   Total time for {min(3, len(repo_names))} repos: {individual_time:.2f}s")
+            
+            total_time = time.time() - start_time
+            print(f"\n🏁 Benchmark completed in {total_time:.2f}s")
+            
+        else:
+            # Show performance metrics
+            print("📊 GitHub API Performance Metrics:")
+            
+            if hasattr(github_client, 'get_performance_metrics'):
+                metrics = github_client.get_performance_metrics()
+                cache_stats = metrics.get('cache_stats', {})
+                optimization = metrics.get('optimization_enabled', {})
+                config_info = metrics.get('configuration', {})
+                
+                print(f"\n💾 Cache Statistics:")
+                print(f"   Cache size: {cache_stats.get('cache_size', 0)} entries")
+                print(f"   Cache hit rate: {cache_stats.get('cache_hit_rate', 0):.1%}")
+                print(f"   Rate limit remaining: {cache_stats.get('requests_remaining', 'unknown')}")
+                
+                reset_time = cache_stats.get('last_rate_limit_reset')
+                if reset_time:
+                    print(f"   Rate limit reset: {reset_time}")
+                
+                print(f"\n⚡ Optimizations:")
+                print(f"   Caching enabled: {'✅' if optimization.get('caching') else '❌'}")
+                print(f"   Batching enabled: {'✅' if optimization.get('batching') else '❌'}")
+                
+                print(f"\n⚙️  Configuration:")
+                print(f"   Cache TTL: {config_info.get('cache_ttl', 300)}s")
+                print(f"   Batch timeout: {config_info.get('batch_timeout', 0.1)}s")
+                print(f"   Rate limit delay: {config_info.get('rate_limit_delay', 1.0)}s")
+            else:
+                print("   Performance metrics not available")
+            
+            if build_monitor and hasattr(build_monitor, 'get_optimization_metrics'):
+                build_metrics = build_monitor.get_optimization_metrics()
+                cache_stats = build_metrics.get('cache_stats', {})
+                
+                print(f"\n🔍 Build Monitor Cache:")
+                print(f"   Build cache: {cache_stats.get('build_cache_size', 0)} entries")
+                print(f"   Metrics cache: {cache_stats.get('metrics_cache_size', 0)} entries")
+    
+    elif len(sys.argv) > 1 and sys.argv[1] == "--optimize":
+        # Self-optimization commands
+        if not self_optimizer:
+            print("❌ Self-optimization not available")
+            sys.exit(1)
+        
+        if len(sys.argv) < 3:
+            print("❌ Optimize command requires a subcommand")
+            print("   Available: analyze, apply, history, revert")
+            sys.exit(1)
+        
+        subcommand = sys.argv[2]
+        
+        if subcommand == "analyze":
+            print("🧠 Analyzing system performance for optimization opportunities...")
+            
+            # Record some sample metrics first (for demonstration)
+            if github_client and hasattr(github_client, 'get_performance_metrics'):
+                metrics = github_client.get_performance_metrics()
+                cache_stats = metrics.get('cache_stats', {})
+                
+                # Record cache performance
+                self_optimizer.record_performance_metric(
+                    'github_cache_hit_rate', 
+                    cache_stats.get('cache_hit_rate', 0) * 100,
+                    'percentage',
+                    {'component': 'github_client', 'function': 'get_cached_response'}
+                )
+                
+                # Record API response time (simulated)
+                self_optimizer.record_performance_metric(
+                    'github_api_response_time',
+                    500.0,  # Simulated 500ms response time
+                    'ms',
+                    {'component': 'github_client', 'function': '_make_fallback_request'}
+                )
+            
+            # Analyze performance
+            analysis = self_optimizer.analyze_system_performance()
+            
+            print(f"📊 Analysis Results:")
+            print(f"   Metrics analyzed: {analysis['metrics_analyzed']}")
+            print(f"   Optimization candidates: {len(analysis['optimization_candidates'])}")
+            print(f"   Applied optimizations: {analysis['applied_optimizations']}")
+            
+            # Show optimization candidates
+            if analysis['optimization_candidates']:
+                print(f"\n🎯 Top Optimization Opportunities:")
+                for i, candidate in enumerate(analysis['optimization_candidates'][:3]):
+                    print(f"   {i+1}. {candidate['description']}")
+                    print(f"      Impact: {candidate['estimated_impact']:.1%}")
+                    print(f"      Confidence: {candidate['confidence_score']:.1%}")
+                    print(f"      Priority: {candidate['severity']}")
+            else:
+                print(f"\n✅ No optimization opportunities found - system performing well!")
+            
+            # Show recommendations
+            if analysis['recommendations']:
+                print(f"\n💡 System Recommendations:")
+                for rec in analysis['recommendations']:
+                    print(f"   • {rec['title']} ({rec['priority']})")
+                    print(f"     {rec['description']}")
+        
+        elif subcommand == "apply":
+            print("🚀 Applying optimization recommendations...")
+            
+            auto_approve = "--auto" in sys.argv
+            if not auto_approve:
+                print("⚠️  Running in safety mode - optimizations will be queued for review")
+                print("   Use --auto flag to apply automatically (not recommended for production)")
+            
+            results = self_optimizer.apply_optimizations(auto_approve=auto_approve)
+            
+            print(f"📈 Optimization Results:")
+            print(f"   Applied: {results['applied_count']}")
+            print(f"   Skipped: {results['skipped_count']}")
+            print(f"   Failed: {results['failed_count']}")
+            
+            if results['optimizations']:
+                print(f"\n📋 Optimization Details:")
+                for opt in results['optimizations']:
+                    status_emoji = "✅" if opt['status'] == 'applied' else "❌"
+                    print(f"   {status_emoji} {opt['description']}")
+        
+        elif subcommand == "history":
+            print("📚 Optimization History:")
+            
+            history = self_optimizer.get_optimization_history()
+            
+            if not history:
+                print("   No optimizations have been applied yet.")
+            else:
+                for opt in history[:10]:  # Show last 10
+                    status_emoji = {"applied": "✅", "reverted": "↩️", "failed": "❌"}.get(opt['status'], "❓")
+                    print(f"   {status_emoji} {opt['description']}")
+                    print(f"      Applied: {opt['applied_at']}")
+                    print(f"      Impact: {opt.get('impact', 0):.1%}")
+                    print(f"      ID: {opt['optimization_id']}")
+                    print()
+        
+        elif subcommand == "revert":
+            if len(sys.argv) < 4:
+                print("❌ Revert command requires optimization ID")
+                print("   Use --optimize history to see available IDs")
+                sys.exit(1)
+            
+            opt_id = sys.argv[3]
+            print(f"↩️  Reverting optimization: {opt_id}")
+            
+            success = self_optimizer.revert_optimization(opt_id)
+            
+            if success:
+                print("✅ Optimization successfully reverted")
+            else:
+                print("❌ Failed to revert optimization")
+        
+        else:
+            print(f"❌ Unknown optimize subcommand: {subcommand}")
+            print("   Available: analyze, apply, history, revert")
+    
     elif len(sys.argv) > 1 and sys.argv[1] == "--repair-sessions":
         # Repair corrupted session files
         session_manager = SessionManager(workspace_manager=workspace_manager)
@@ -1608,6 +1845,14 @@ def main():
             print("  --github rollback <owner/repo> <env> # Rollback deployment")
             print("  --github health <owner/repo>     # Check build health")
             print("  --github actions <owner/repo>    # List workflow runs")
+            print("  Performance:")
+            print("  --performance                    # Show GitHub API performance metrics")
+            print("  --performance benchmark <repos>  # Benchmark GitHub API with multiple repos")
+            print("  Self-Optimization:")
+            print("  --optimize analyze               # Analyze system performance for optimization")
+            print("  --optimize apply                 # Apply optimization recommendations")
+            print("  --optimize history               # Show optimization history")
+            print("  --optimize revert <id>           # Revert specific optimization")
             sys.exit(1)
         
         subcommand = sys.argv[2]
