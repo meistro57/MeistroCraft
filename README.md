@@ -1,6 +1,10 @@
-# MeistroCraft - GPT-4 Orchestrator with Claude Code CLI
-
-> **A Complete Multi-Agent System for Autonomous Code Generation**
+<div align="center">
+  <img src="MeistroCraft_logo.png" alt="MeistroCraft Logo" width="120" height="120">
+  
+  # MeistroCraft - GPT-4 Orchestrator with Claude Code CLI
+  
+  > **A Complete Multi-Agent System for Autonomous Code Generation**
+</div>
 
 [![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
 [![Node.js 18+](https://img.shields.io/badge/node.js-18+-green.svg)](https://nodejs.org/)

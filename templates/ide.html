@@ -4,6 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>MeistroCraft IDE</title>
+    <link rel="icon" type="image/x-icon" href="/MeistroCraft_logo.ico">
     <link rel="stylesheet" href="/static/css/wizard.css">
     <link rel="stylesheet" href="/static/css/project-manager.css">
     <style>
@@ -677,6 +678,27 @@
             padding: 10px;
             border-bottom: 1px solid #3e3e42;
             background: #2d2d30;
+        }
+        
+        .logo-section {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+            margin-bottom: 10px;
+            padding: 5px;
+        }
+        
+        .logo {
+            width: 24px;
+            height: 24px;
+            object-fit: contain;
+        }
+        
+        .logo-text {
+            font-weight: bold;
+            font-size: 14px;
+            color: #ffffff;
+            text-shadow: 0 1px 2px rgba(0,0,0,0.5);
         }
         
         .sidebar-tabs {
@@ -1836,6 +1858,10 @@
             <!-- File Explorer Sidebar -->
             <div class="sidebar">
             <div class="sidebar-header">
+                <div class="logo-section">
+                    <img src="/MeistroCraft_logo.png" alt="MeistroCraft" class="logo">
+                    <span class="logo-text">MeistroCraft</span>
+                </div>
                 <div class="sidebar-tabs">
                     <span class="sidebar-tab active" data-tab="explorer">📁 Files</span>
                     <span class="sidebar-tab" data-tab="sessions">💬 Sessions</span>

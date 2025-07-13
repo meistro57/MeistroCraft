@@ -137,6 +137,16 @@ async def health_check():
         "version": "2.0.0"
     }
 
+@app.get("/MeistroCraft_logo.ico")
+async def serve_favicon():
+    """Serve the favicon."""
+    return FileResponse("MeistroCraft_logo.ico", media_type="image/x-icon")
+
+@app.get("/MeistroCraft_logo.png")
+async def serve_logo():
+    """Serve the PNG logo."""
+    return FileResponse("MeistroCraft_logo.png", media_type="image/png")
+
 @app.post("/api/sessions")
 async def create_session(request: Request):
     """Create a new interactive session."""
