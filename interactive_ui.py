@@ -220,6 +220,18 @@ class InteractiveSession:
             self._set_auto_accept_level(command[13:])  # Remove '/auto-accept '
         elif cmd == '/auto-status':
             self._show_auto_accept_status()
+        elif cmd == '/cleanup-sessions':
+            self._cleanup_sessions()
+        elif cmd == '/repair-sessions':
+            self._repair_sessions()
+        elif cmd.startswith('/delete-session '):
+            self._delete_session(command[16:])  # Remove '/delete-session '
+        elif cmd == '/test':
+            self._run_tests()
+        elif cmd == '/run':
+            self._run_application()
+        elif cmd == '/build':
+            self._build_project()
         else:
             self.ui.add_message("system", f"Unknown command: {command}. Type /help for available commands.")
     
@@ -613,6 +625,187 @@ Levels:
         except Exception as e:
             self.ui.add_message("error", f"Error getting auto-accept status: {e}")
     
+    def _cleanup_sessions(self) -> None:
+        """Clean up old sessions."""
+        try:
+            stats = self.session_manager.cleanup_old_sessions(days_old=30, max_sessions=50)
+            
+            message = f"""Session Cleanup Completed:
+📅 Sessions deleted by age (>30 days): {stats['deleted_by_age']}
+📊 Sessions deleted by count limit (>50): {stats['deleted_by_count']}
+🗑️ Corrupted files removed: {stats['corrupted_deleted']}
+📋 Sessions remaining: {stats['total_remaining']}"""
+            
+            self.ui.add_message("system", message)
+            
+        except Exception as e:
+            self.ui.add_message("error", f"Error during session cleanup: {e}")
+    
+    def _repair_sessions(self) -> None:
+        """Repair corrupted session files."""
+        try:
+            stats = self.session_manager.repair_sessions()
+            
+            message = f"""Session Repair Completed:
+🔧 Sessions repaired: {stats['repaired']}
+🗑️ Unrepairable sessions deleted: {stats['deleted']}
+✅ Sessions unchanged: {stats['unchanged']}"""
+            
+            self.ui.add_message("system", message)
+            
+        except Exception as e:
+            self.ui.add_message("error", f"Error during session repair: {e}")
+    
+    def _delete_session(self, session_id: str) -> None:
+        """Delete a specific session."""
+        if not session_id.strip():
+            self.ui.add_message("system", "Usage: /delete-session <session_id>")
+            return
+        
+        try:
+            # Try to find session by short ID if not found directly
+            session_data = self.session_manager.load_session(session_id)
+            if not session_data and len(session_id) == 8:
+                full_session_id = self.session_manager.find_session_by_short_id(session_id)
+                if full_session_id:
+                    session_id = full_session_id
+            
+            success = self.session_manager.delete_session(session_id)
+            if success:
+                self.ui.add_message("system", f"✅ Session {session_id[:8]} deleted successfully")
+            else:
+                self.ui.add_message("system", f"❌ Failed to delete session {session_id[:8]} (may not exist)")
+                
+        except Exception as e:
+            self.ui.add_message("error", f"Error deleting session: {e}")
+    
+    def _run_tests(self) -> None:
+        """Run project tests."""
+        try:
+            import subprocess
+            import os
+            
+            # Try common test commands
+            test_commands = [
+                "npm test",
+                "pytest",
+                "python -m pytest",
+                "cargo test",
+                "mvn test",
+                "gradle test",
+                "make test"
+            ]
+            
+            self.ui.add_message("system", "🧪 Looking for test command...")
+            
+            for cmd in test_commands:
+                try:
+                    # Check if command exists
+                    result = subprocess.run(cmd.split()[0], capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0 or "not found" not in result.stderr.lower():
+                        self.ui.add_message("system", f"🧪 Running tests with: {cmd}")
+                        
+                        # Run the actual test command
+                        test_result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=120)
+                        
+                        if test_result.returncode == 0:
+                            self.ui.add_message("system", f"✅ Tests passed!\n{test_result.stdout[-200:]}")
+                        else:
+                            self.ui.add_message("error", f"❌ Tests failed!\n{test_result.stderr[-200:]}")
+                        return
+                        
+                except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+            
+            self.ui.add_message("system", "❓ No test command found. Try manually running your project's test command.")
+            
+        except Exception as e:
+            self.ui.add_message("error", f"Error running tests: {e}")
+    
+    def _run_application(self) -> None:
+        """Run the application."""
+        try:
+            import subprocess
+            import os
+            
+            # Try common run commands
+            run_commands = [
+                "npm start",
+                "npm run dev",
+                "python app.py",
+                "python main.py",
+                "cargo run",
+                "mvn spring-boot:run",
+                "gradle bootRun",
+                "make run"
+            ]
+            
+            self.ui.add_message("system", "🚀 Looking for run command...")
+            
+            for cmd in run_commands:
+                try:
+                    # Check if command or file exists
+                    if cmd.startswith("python "):
+                        file_to_check = cmd.split()[1]
+                        if not os.path.exists(file_to_check):
+                            continue
+                    
+                    self.ui.add_message("system", f"🚀 Starting application with: {cmd}")
+                    self.ui.add_message("system", "💡 Application started in background. Use Ctrl+C to stop if needed.")
+                    
+                    # Start the application (don't wait for it to finish)
+                    subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+                    return
+                    
+                except Exception:
+                    continue
+            
+            self.ui.add_message("system", "❓ No run command found. Try manually running your application.")
+            
+        except Exception as e:
+            self.ui.add_message("error", f"Error running application: {e}")
+    
+    def _build_project(self) -> None:
+        """Build the project."""
+        try:
+            import subprocess
+            
+            # Try common build commands
+            build_commands = [
+                "npm run build",
+                "cargo build",
+                "mvn compile",
+                "gradle build",
+                "make build",
+                "make"
+            ]
+            
+            self.ui.add_message("system", "🔨 Looking for build command...")
+            
+            for cmd in build_commands:
+                try:
+                    # Check if command exists
+                    result = subprocess.run(cmd.split()[0], capture_output=True, text=True, timeout=5)
+                    if result.returncode == 0 or "not found" not in result.stderr.lower():
+                        self.ui.add_message("system", f"🔨 Building project with: {cmd}")
+                        
+                        # Run the actual build command
+                        build_result = subprocess.run(cmd, shell=True, capture_output=True, text=True, timeout=300)
+                        
+                        if build_result.returncode == 0:
+                            self.ui.add_message("system", f"✅ Build successful!\n{build_result.stdout[-200:]}")
+                        else:
+                            self.ui.add_message("error", f"❌ Build failed!\n{build_result.stderr[-200:]}")
+                        return
+                        
+                except (subprocess.TimeoutExpired, subprocess.CalledProcessError, FileNotFoundError):
+                    continue
+            
+            self.ui.add_message("system", "❓ No build command found. Project may not require building.")
+            
+        except Exception as e:
+            self.ui.add_message("error", f"Error building project: {e}")
+    
     def _process_user_request(self, user_input: str) -> None:
         """Process a user request in a separate thread."""
         self.processing_request = True
@@ -634,8 +827,20 @@ Levels:
             
             # Set up project folder for first task if not already set
             if not self.project_folder:
-                self.project_folder = setup_project_folder(user_input[:30])
-                self.ui.add_message("system", f"📁 Created project folder: {self.project_folder}")
+                # Try to get project folder from session data first
+                session_data = self.session_manager.load_session(self.session_id)
+                if session_data and session_data.get("project_folder"):
+                    self.project_folder = session_data["project_folder"]
+                    self.ui.add_message("system", f"📁 Using session project folder: {self.project_folder}")
+                else:
+                    # Fallback to old setup_project_folder method
+                    self.project_folder = setup_project_folder(user_input, self.config)
+                    self.ui.add_message("system", f"📁 Created project folder: {self.project_folder}")
+                    
+                    # Update session with project folder
+                    if session_data:
+                        session_data["project_folder"] = self.project_folder
+                        self.session_manager.save_session(session_data)
             
             # Show progress
             self.ui.show_progress("Generating task with GPT-4")

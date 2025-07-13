@@ -28,13 +28,13 @@ class ProjectManager {
                 <div class="project-manager-container">
                     <div class="project-manager-header">
                         <h2 class="project-manager-title">📁 Project Manager</h2>
-                        <button class="project-manager-close" onclick="projectManager.close()">&times;</button>
+                        <button class="project-manager-close" onclick="closeProjectManager()">&times;</button>
                     </div>
                     
                     <div class="project-manager-toolbar">
                         <div class="project-search">
                             <input type="text" id="projectSearchInput" placeholder="Search projects..." />
-                            <button class="project-btn project-btn-secondary" onclick="projectManager.refreshProjects()">
+                            <button class="project-btn project-btn-secondary" onclick="window.projectManager.refreshProjects()">
                                 🔄 Refresh
                             </button>
                         </div>
@@ -56,10 +56,10 @@ class ProjectManager {
                         </div>
                         
                         <div class="project-actions">
-                            <button class="project-btn project-btn-primary" onclick="projectManager.createNewProject()">
+                            <button class="project-btn project-btn-primary" onclick="window.projectManager.createNewProject()">
                                 ➕ New Project
                             </button>
-                            <button class="project-btn project-btn-secondary" onclick="projectManager.importProject()">
+                            <button class="project-btn project-btn-secondary" onclick="window.projectManager.importProject()">
                                 📥 Import
                             </button>
                         </div>
@@ -77,7 +77,7 @@ class ProjectManager {
                                 <div class="empty-state-description">
                                     Create your first project to get started with development.
                                 </div>
-                                <button class="project-btn project-btn-primary" onclick="projectManager.createNewProject()">
+                                <button class="project-btn project-btn-primary" onclick="window.projectManager.createNewProject()">
                                     🚀 Create Project
                                 </button>
                             </div>
@@ -86,7 +86,7 @@ class ProjectManager {
                         <div class="project-details-panel" id="projectDetailsPanel">
                             <div class="project-details-header">
                                 <h3 class="project-details-title" id="projectDetailsTitle">Project Details</h3>
-                                <button class="project-details-close" onclick="projectManager.closeDetails()">&times;</button>
+                                <button class="project-details-close" onclick="window.projectManager.closeDetails()">&times;</button>
                             </div>
                             
                             <div id="projectDetailsContent">
@@ -100,13 +100,13 @@ class ProjectManager {
                             <span id="selectedCount">0</span> project(s) selected
                         </div>
                         <div class="bulk-actions-buttons">
-                            <button class="project-btn project-btn-secondary" onclick="projectManager.bulkArchive()">
+                            <button class="project-btn project-btn-secondary" onclick="window.projectManager.bulkArchive()">
                                 📦 Archive
                             </button>
-                            <button class="project-btn project-btn-warning" onclick="projectManager.bulkRestore()">
+                            <button class="project-btn project-btn-warning" onclick="window.projectManager.bulkRestore()">
                                 🔄 Restore
                             </button>
-                            <button class="project-btn project-btn-danger" onclick="projectManager.bulkDelete()">
+                            <button class="project-btn project-btn-danger" onclick="window.projectManager.bulkDelete()">
                                 🗑️ Delete
                             </button>
                         </div>
@@ -116,31 +116,31 @@ class ProjectManager {
             
             <!-- Context Menu -->
             <div id="projectContextMenu" class="context-menu">
-                <button class="context-menu-item" onclick="projectManager.openProject()">
+                <button class="context-menu-item" onclick="window.projectManager.openProject()">
                     📂 Open Project
                 </button>
-                <button class="context-menu-item" onclick="projectManager.showProjectDetails()">
+                <button class="context-menu-item" onclick="window.projectManager.showProjectDetails()">
                     ℹ️ Project Details
                 </button>
                 <div class="context-menu-separator"></div>
-                <button class="context-menu-item" onclick="projectManager.duplicateProject()">
+                <button class="context-menu-item" onclick="window.projectManager.duplicateProject()">
                     📋 Duplicate
                 </button>
-                <button class="context-menu-item" onclick="projectManager.exportProject()">
+                <button class="context-menu-item" onclick="window.projectManager.exportProject()">
                     📤 Export
                 </button>
                 <div class="context-menu-separator"></div>
-                <button class="context-menu-item" onclick="projectManager.initializeGit()">
+                <button class="context-menu-item" onclick="window.projectManager.initializeGit()">
                     🔗 Initialize Git
                 </button>
-                <button class="context-menu-item" onclick="projectManager.pushToGit()">
+                <button class="context-menu-item" onclick="window.projectManager.pushToGit()">
                     ⬆️ Push to Repository
                 </button>
                 <div class="context-menu-separator"></div>
-                <button class="context-menu-item" onclick="projectManager.archiveProject()">
+                <button class="context-menu-item" onclick="window.projectManager.archiveProject()">
                     📦 Archive
                 </button>
-                <button class="context-menu-item danger" onclick="projectManager.deleteProject()">
+                <button class="context-menu-item danger" onclick="window.projectManager.deleteProject()">
                     🗑️ Delete
                 </button>
             </div>
@@ -440,10 +440,10 @@ class ProjectManager {
                 </div>
                 
                 <div class="project-actions-card">
-                    <button class="project-btn project-btn-primary" onclick="projectManager.openProject('${project.id}')">
+                    <button class="project-btn project-btn-primary" onclick="window.projectManager.openProject('${project.id}')">
                         📂 Open
                     </button>
-                    <button class="project-btn project-btn-secondary" onclick="projectManager.showProjectDetails('${project.id}')">
+                    <button class="project-btn project-btn-secondary" onclick="window.projectManager.showProjectDetails('${project.id}')">
                         ℹ️ Details
                     </button>
                     ${this.getProjectActionButtons(project)}
@@ -457,27 +457,34 @@ class ProjectManager {
         
         if (project.status === 'active') {
             buttons.push(`
-                <button class="project-btn project-btn-warning" onclick="projectManager.archiveProject('${project.id}')">
+                <button class="project-btn project-btn-warning" onclick="window.projectManager.archiveProject('${project.id}')" title="Archive Project">
                     📦
                 </button>
             `);
         } else if (project.status === 'archived') {
             buttons.push(`
-                <button class="project-btn project-btn-success" onclick="projectManager.restoreProject('${project.id}')">
+                <button class="project-btn project-btn-success" onclick="window.projectManager.restoreProject('${project.id}')" title="Restore Project">
                     🔄
                 </button>
             `);
         }
         
+        // Always show delete button
+        buttons.push(`
+            <button class="project-btn project-btn-danger" onclick="window.projectManager.deleteProject('${project.id}')" title="Delete Project">
+                🗑️
+            </button>
+        `);
+        
         if (project.git?.initialized) {
             buttons.push(`
-                <button class="project-btn project-btn-secondary" onclick="projectManager.pushToGit('${project.id}')">
+                <button class="project-btn project-btn-secondary" onclick="window.projectManager.pushToGit('${project.id}')" title="Push to Git">
                     ⬆️
                 </button>
             `);
         } else {
             buttons.push(`
-                <button class="project-btn project-btn-secondary" onclick="projectManager.initializeGit('${project.id}')">
+                <button class="project-btn project-btn-secondary" onclick="window.projectManager.initializeGit('${project.id}')" title="Initialize Git">
                     🔗
                 </button>
             `);
@@ -645,34 +652,34 @@ class ProjectManager {
             <div class="project-detail-section">
                 <div class="project-detail-label">Actions</div>
                 <div style="display: flex; flex-direction: column; gap: 8px; margin-top: 12px;">
-                    <button class="project-btn project-btn-primary" onclick="projectManager.openProject('${project.id}')">
+                    <button class="project-btn project-btn-primary" onclick="window.projectManager.openProject('${project.id}')">
                         📂 Open Project
                     </button>
-                    <button class="project-btn project-btn-secondary" onclick="projectManager.exportProject('${project.id}')">
+                    <button class="project-btn project-btn-secondary" onclick="window.projectManager.exportProject('${project.id}')">
                         📤 Export Project
                     </button>
-                    <button class="project-btn project-btn-secondary" onclick="projectManager.duplicateProject('${project.id}')">
+                    <button class="project-btn project-btn-secondary" onclick="window.projectManager.duplicateProject('${project.id}')">
                         📋 Duplicate Project
                     </button>
                     ${!project.git?.initialized ? `
-                        <button class="project-btn project-btn-secondary" onclick="projectManager.initializeGit('${project.id}')">
+                        <button class="project-btn project-btn-secondary" onclick="window.projectManager.initializeGit('${project.id}')">
                             🔗 Initialize Git
                         </button>
                     ` : `
-                        <button class="project-btn project-btn-secondary" onclick="projectManager.pushToGit('${project.id}')">
+                        <button class="project-btn project-btn-secondary" onclick="window.projectManager.pushToGit('${project.id}')">
                             ⬆️ Push to Repository
                         </button>
                     `}
                     ${project.status === 'active' ? `
-                        <button class="project-btn project-btn-warning" onclick="projectManager.archiveProject('${project.id}')">
+                        <button class="project-btn project-btn-warning" onclick="window.projectManager.archiveProject('${project.id}')">
                             📦 Archive Project
                         </button>
                     ` : project.status === 'archived' ? `
-                        <button class="project-btn project-btn-success" onclick="projectManager.restoreProject('${project.id}')">
+                        <button class="project-btn project-btn-success" onclick="window.projectManager.restoreProject('${project.id}')">
                             🔄 Restore Project
                         </button>
                     ` : ''}
-                    <button class="project-btn project-btn-danger" onclick="projectManager.deleteProject('${project.id}')">
+                    <button class="project-btn project-btn-danger" onclick="window.projectManager.deleteProject('${project.id}')">
                         🗑️ Delete Project
                     </button>
                 </div>
@@ -713,7 +720,7 @@ class ProjectManager {
             this.close();
             
             // Show success message
-            this.showNotification('success', `Opened project: ${project.name}`);
+            // Project opened silently
         } catch (error) {
             console.error('Failed to open project:', error);
             this.showNotification('error', 'Failed to open project');
@@ -724,10 +731,14 @@ class ProjectManager {
         this.close();
         
         // Trigger the project wizard
-        if (window.showProjectWizard) {
+        if (typeof showProjectWizard === 'function') {
+            showProjectWizard();
+        } else if (window.showProjectWizard) {
             window.showProjectWizard();
         } else if (this.ide && this.ide.showProjectWizard) {
             this.ide.showProjectWizard();
+        } else {
+            console.error('ProjectWizard not available');
         }
     }
     
@@ -768,11 +779,11 @@ class ProjectManager {
         const project = this.projects.find(p => p.id === projectId);
         if (!project) return;
         
-        if (!confirm(`Archive project "${project.name}"?`)) return;
+        // Archive without confirmation
         
         try {
             await this.updateProjectStatus(project.id, 'archived');
-            this.showNotification('success', `Project archived: ${project.name}`);
+            // Project archived silently
         } catch (error) {
             console.error('Failed to archive project:', error);
             this.showNotification('error', 'Failed to archive project');
@@ -785,7 +796,7 @@ class ProjectManager {
         
         try {
             await this.updateProjectStatus(project.id, 'active');
-            this.showNotification('success', `Project restored: ${project.name}`);
+            // Project restored silently
         } catch (error) {
             console.error('Failed to restore project:', error);
             this.showNotification('error', 'Failed to restore project');
@@ -972,7 +983,7 @@ class ProjectManager {
     async bulkArchive() {
         if (this.selectedProjects.size === 0) return;
         
-        if (!confirm(`Archive ${this.selectedProjects.size} project(s)?`)) return;
+        // Archive without confirmation
         
         try {
             this.showLoading();
@@ -1104,14 +1115,8 @@ class ProjectManager {
     }
     
     showNotification(type, message) {
-        // Use the IDE's notification system if available
-        if (this.ide && this.ide.showNotification) {
-            this.ide.showNotification(type, message);
-        } else {
-            // Fallback notification
-            console.log(`${type.toUpperCase()}: ${message}`);
-            alert(message);
-        }
+        // Notifications disabled - generic popups removed
+        return;
     }
     
     // Utility Methods
@@ -1140,6 +1145,28 @@ class ProjectManager {
 
 // Global instance
 let projectManager = null;
+
+// Global functions for HTML onclick handlers
+function showProjectManager() {
+    if (!projectManager && window.ide) {
+        projectManager = new ProjectManager(window.ide);
+        // Make it globally accessible
+        window.projectManager = projectManager;
+    }
+    if (projectManager) {
+        projectManager.show();
+    }
+}
+
+function closeProjectManager() {
+    if (window.projectManager) {
+        window.projectManager.close();
+    }
+}
+
+// Make functions globally accessible
+window.showProjectManager = showProjectManager;
+window.closeProjectManager = closeProjectManager;
 
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {

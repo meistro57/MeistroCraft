@@ -9,7 +9,27 @@
       "Bash(git init:*)",
       "Bash(git commit:*)",
       "Bash(mkdir:*)",
-      "Bash(git add:*)"
+      "Bash(git add:*)",
+      "Bash(git push:*)",
+      "Bash(rm:*)",
+      "Bash(sudo rm:*)",
+      "Bash(ls:*)",
+      "Bash(./meistrocraft --request 'create a binary calculator using flask' --overwrite)",
+      "Bash(./meistrocraft --request 'create a binary calculator using flask')",
+      "Bash(git checkout:*)",
+      "Bash(find:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(git config:*)",
+      "Bash(claude --version)",
+      "Bash(claude -p \"Create a simple hello world function in Python\" --output-format json)",
+      "Bash(pip install:*)",
+      "Bash(curl:*)",
+      "Bash(ss:*)",
+      "Bash(pkill:*)",
+      "Bash(grep:*)",
+      "Bash(pip3 install:*)",
+      "Bash(source:*)"
     ],
     "deny": []
   }

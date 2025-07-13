@@ -1,6 +1,7 @@
 {
   "openai_api_key": "sk-your-openai-key-here",
   "anthropic_api_key": "sk-ant-your-anthropic-key-here",
+  "github_api_key": "ghp_your-github-personal-access-token",
   "openai_model": "gpt-4-0613",
   "claude_model": "claude-sonnet-4-20250514",
   "allowed_tools": ["Read", "Write", "Bash(npm run test)"],
@@ -18,6 +19,19 @@
     "track_tokens": true,
     "auto_cleanup_logs": true,
     "cleanup_days": 90
+  },
+  "github": {
+    "enabled": true,
+    "default_branch": "main",
+    "auto_create_repos": true,
+    "enable_webhooks": false,
+    "rate_limit_delay": 1.0,
+    "max_retries": 3,
+    "organization": "",
+    "default_visibility": "private",
+    "auto_initialize": true,
+    "default_gitignore": "Python",
+    "default_license": "MIT"
   },
   "memory_limit_mb": 512.0
 }

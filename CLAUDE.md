@@ -128,7 +128,38 @@ Backend enhances the message with file context before sending to AI.
 1. **Web Session Creation**: Unique ID generated on page load
 2. **MeistroCraft Session Mapping**: Web session maps to backend session
 3. **Project Folder**: Each session gets isolated folder in `projects/`
-4. **Cleanup**: Folders removed when sessions deleted
+4. **GitHub Integration**: Sessions automatically integrate with GitHub workflows
+5. **Cleanup**: Folders removed when sessions deleted
+
+## GitHub Integration (Phase 1 & 2 Complete)
+
+### Automated Workflow Integration
+- **Pull Request Creation**: Successful MeistroCraft tasks automatically create PRs
+- **Issue Tracking**: Failed tasks automatically create GitHub issues
+- **Smart Branch Naming**: Session-based branches (`meistrocraft/{session-id}/{action}-{filename}`)
+- **Repository Health**: Workflow analysis and optimization recommendations
+
+### Available GitHub Commands
+```bash
+# Repository operations
+python main.py --github repos                   # List repositories
+python main.py --github create my-repo          # Create repository
+python main.py --github fork owner/repo         # Fork repository
+
+# Workflow automation
+python main.py --github prs owner/repo          # List pull requests
+python main.py --github issues owner/repo       # List issues
+python main.py --github workflow owner/repo     # Repository health analysis
+
+# Interactive mode
+python main.py --github-interactive             # GitHub shell
+```
+
+### Task-to-GitHub Integration
+When MeistroCraft executes tasks, the system automatically:
+1. **Successful Tasks** → Creates PR with comprehensive description and review checklist
+2. **Failed Tasks** → Creates GitHub issue with error details and intelligent labeling
+3. **Session Tracking** → Links all GitHub objects to MeistroCraft sessions for traceability
 
 ## Security Features
 

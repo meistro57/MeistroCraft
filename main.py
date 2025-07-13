@@ -24,6 +24,8 @@ from naming_agent import generate_creative_project_name
 from token_tracker import TokenTracker, TokenUsage, UsageLimits
 from persistent_memory import PersistentMemory, MemoryType, MemoryPriority
 from workspace_manager import WorkspaceManager
+from github_client import create_github_client, GitHubClient, GitHubClientError
+from github_workflows import create_workflow_integration, WorkflowIntegration, GitHubWorkflowError
 
 def load_config(config_path: str = "config/config.json") -> Dict[str, Any]:
     """Load configuration from JSON file."""
@@ -1240,10 +1242,24 @@ def main():
     # Initialize workspace manager
     workspace_manager = WorkspaceManager()
     
+    # Initialize GitHub client
+    github_client = create_github_client(config)
+    
+    # Initialize GitHub workflow integration
+    workflow_integration = create_workflow_integration(github_client) if github_client else None
+    
     # Show memory status
     memory_summary = persistent_memory.get_memory_summary()
     print(f"  {memory_summary}")
     print(f"  🏗️  Workspace isolation: enabled")
+    if github_client:
+        print(f"  🐙 GitHub integration: enabled ({github_client.get_authenticated_user()})")
+        if workflow_integration:
+            print(f"  🔄 GitHub workflows: enabled (PR/Issue automation)")
+        else:
+            print(f"  🔄 GitHub workflows: basic mode")
+    else:
+        print(f"  🐙 GitHub integration: disabled")
     
     print(f"Configuration loaded:")
     print(f"  Claude model: {config.get('claude_model', 'default')}")
@@ -1549,6 +1565,300 @@ def main():
         else:
             print("❌ --request mode requires OpenAI API key and a request string")
             sys.exit(1)
+    
+    # GitHub integration commands
+    elif len(sys.argv) > 1 and sys.argv[1] == "--github":
+        if not github_client:
+            print("❌ GitHub integration not available. Please check your configuration.")
+            sys.exit(1)
+        
+        if len(sys.argv) < 3:
+            print("❌ --github requires a subcommand")
+            print("Available commands:")
+            print("  --github test                    # Test GitHub connection")
+            print("  --github status                  # Show GitHub API status")
+            print("  --github repos                   # List repositories")
+            print("  --github create <name>           # Create new repository")
+            print("  --github fork <owner/repo>       # Fork repository")
+            print("  --github prs <owner/repo>        # List pull requests")
+            print("  --github issues <owner/repo>     # List issues")
+            print("  --github workflow <owner/repo>   # Show workflow status")
+            sys.exit(1)
+        
+        subcommand = sys.argv[2]
+        
+        if subcommand == "test":
+            print("🔗 Testing GitHub connection...")
+            test_result = github_client.test_connection()
+            if test_result["success"]:
+                print(f"✅ {test_result['message']}")
+                if test_result.get('using_pygithub'):
+                    print("   Using PyGitHub library (full functionality)")
+                else:
+                    print("   Using fallback mode (basic functionality)")
+            else:
+                print(f"❌ GitHub connection failed: {test_result['error']}")
+        
+        elif subcommand == "status":
+            print("🐙 GitHub Status:")
+            rate_limit = github_client.get_rate_limit_status()
+            if "error" not in rate_limit:
+                if "core" in rate_limit:
+                    core = rate_limit["core"]
+                    print(f"  API Rate Limit: {core['remaining']}/{core['limit']} remaining")
+                    print(f"  Reset time: {core['reset']}")
+                print(f"  User: {github_client.get_authenticated_user()}")
+            else:
+                print(f"  Error: {rate_limit['error']}")
+        
+        elif subcommand == "repos":
+            print("📋 Listing repositories...")
+            try:
+                repos = github_client.list_repositories()
+                if repos:
+                    print(f"Found {len(repos)} repositories:")
+                    for repo in repos[:10]:  # Show first 10
+                        if hasattr(repo, 'full_name'):  # PyGitHub object
+                            name = repo.full_name
+                            desc = repo.description or "No description"
+                            private = "🔒" if repo.private else "🌐"
+                        else:  # Dict from fallback mode
+                            name = repo.get('full_name', 'Unknown')
+                            desc = repo.get('description') or "No description"
+                            private = "🔒" if repo.get('private') else "🌐"
+                        print(f"  {private} {name} - {desc[:50]}{'...' if len(desc) > 50 else ''}")
+                    if len(repos) > 10:
+                        print(f"  ... and {len(repos) - 10} more")
+                else:
+                    print("  No repositories found.")
+            except GitHubClientError as e:
+                print(f"❌ Failed to list repositories: {e}")
+        
+        elif subcommand == "create":
+            if len(sys.argv) < 4:
+                print("❌ --github create requires a repository name")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            description = " ".join(sys.argv[4:]) if len(sys.argv) > 4 else f"Repository created by MeistroCraft"
+            
+            print(f"🔨 Creating repository '{repo_name}'...")
+            try:
+                repo = github_client.create_repository(
+                    name=repo_name,
+                    description=description,
+                    private=True,  # Default to private for safety
+                    auto_init=True
+                )
+                
+                if hasattr(repo, 'html_url'):  # PyGitHub object
+                    print(f"✅ Repository created: {repo.html_url}")
+                    print(f"   Clone URL: {repo.clone_url}")
+                else:  # Dict from fallback mode
+                    print(f"✅ Repository created: {repo.get('html_url')}")
+                    print(f"   Clone URL: {repo.get('clone_url')}")
+                    
+            except GitHubClientError as e:
+                print(f"❌ Failed to create repository: {e}")
+        
+        elif subcommand == "fork":
+            if len(sys.argv) < 4:
+                print("❌ --github fork requires a repository name (owner/repo)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            if '/' not in repo_name:
+                print("❌ Repository name must be in format 'owner/repo'")
+                sys.exit(1)
+            
+            print(f"🍴 Forking repository '{repo_name}'...")
+            try:
+                forked_repo = github_client.fork_repository(repo_name)
+                
+                if hasattr(forked_repo, 'html_url'):  # PyGitHub object
+                    print(f"✅ Repository forked: {forked_repo.html_url}")
+                    print(f"   Clone URL: {forked_repo.clone_url}")
+                else:  # Dict from fallback mode
+                    print(f"✅ Repository forked: {forked_repo.get('html_url')}")
+                    print(f"   Clone URL: {forked_repo.get('clone_url')}")
+                    
+            except GitHubClientError as e:
+                print(f"❌ Failed to fork repository: {e}")
+        
+        elif subcommand == "prs":
+            if len(sys.argv) < 4:
+                print("❌ --github prs requires a repository name (owner/repo)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            state = sys.argv[4] if len(sys.argv) > 4 else "open"
+            
+            if not workflow_integration:
+                print("❌ GitHub workflow integration not available")
+                sys.exit(1)
+            
+            print(f"📋 Listing {state} pull requests for {repo_name}...")
+            try:
+                prs = workflow_integration.pr_manager.list_repository_prs(repo_name, state)
+                if prs:
+                    print(f"Found {len(prs)} {state} pull request(s):")
+                    for pr in prs[:10]:  # Show first 10
+                        branch_info = f" ({pr.get('branch')} → {pr.get('base')})" if pr.get('branch') else ""
+                        print(f"  #{pr.get('number')} {pr.get('title')}{branch_info}")
+                        print(f"    👤 {pr.get('user')} • 🔗 {pr.get('html_url')}")
+                    if len(prs) > 10:
+                        print(f"  ... and {len(prs) - 10} more")
+                else:
+                    print(f"  No {state} pull requests found.")
+            except GitHubWorkflowError as e:
+                print(f"❌ Failed to list pull requests: {e}")
+        
+        elif subcommand == "issues":
+            if len(sys.argv) < 4:
+                print("❌ --github issues requires a repository name (owner/repo)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            state = sys.argv[4] if len(sys.argv) > 4 else "open"
+            
+            if not workflow_integration:
+                print("❌ GitHub workflow integration not available")
+                sys.exit(1)
+            
+            print(f"🎫 Listing {state} issues for {repo_name}...")
+            try:
+                issues = workflow_integration.issue_manager.list_repository_issues(repo_name, state)
+                if issues:
+                    print(f"Found {len(issues)} {state} issue(s):")
+                    for issue in issues[:10]:  # Show first 10
+                        labels_str = ", ".join(issue.get('labels', [])) if issue.get('labels') else "no labels"
+                        print(f"  #{issue.get('number')} {issue.get('title')}")
+                        print(f"    🏷️  {labels_str} • 👤 {issue.get('user')} • 🔗 {issue.get('html_url')}")
+                    if len(issues) > 10:
+                        print(f"  ... and {len(issues) - 10} more")
+                else:
+                    print(f"  No {state} issues found.")
+            except GitHubWorkflowError as e:
+                print(f"❌ Failed to list issues: {e}")
+        
+        elif subcommand == "workflow":
+            if len(sys.argv) < 4:
+                print("❌ --github workflow requires a repository name (owner/repo)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            
+            if not workflow_integration:
+                print("❌ GitHub workflow integration not available")
+                sys.exit(1)
+            
+            print(f"🔄 Getting workflow status for {repo_name}...")
+            try:
+                status = workflow_integration.get_repository_status(repo_name)
+                
+                print(f"📊 Repository Status:")
+                print(f"  Open PRs: {status.get('total_open_prs', 0)}")
+                print(f"  Open Issues: {status.get('total_open_issues', 0)}")
+                print(f"  MeistroCraft PRs: {status.get('meistrocraft_prs', 0)}")
+                print(f"  MeistroCraft Issues: {status.get('meistrocraft_issues', 0)}")
+                print(f"  Workflow Health: {status.get('workflow_health', 'unknown')}")
+                
+                recommendations = status.get('recommendations', [])
+                if recommendations:
+                    print(f"\n💡 Recommendations:")
+                    for rec in recommendations:
+                        print(f"  • {rec}")
+                else:
+                    print(f"\n✅ No recommendations - workflow looks good!")
+                    
+            except GitHubWorkflowError as e:
+                print(f"❌ Failed to get workflow status: {e}")
+        
+        else:
+            print(f"❌ Unknown GitHub subcommand: {subcommand}")
+            print("Available commands:")
+            print("  test, status, repos, create, fork, prs, issues, workflow")
+            sys.exit(1)
+    
+    elif len(sys.argv) > 1 and sys.argv[1] == "--github-interactive":
+        if not github_client:
+            print("❌ GitHub integration not available. Please check your configuration.")
+            sys.exit(1)
+        
+        print("🐙 GitHub Interactive Mode")
+        print("Commands: 'repos', 'create <name>', 'fork <owner/repo>', 'status', 'quit'")
+        
+        while True:
+            try:
+                command = input("\n🐙 GitHub> ").strip()
+                if not command:
+                    continue
+                
+                if command.lower() in ['quit', 'exit', 'q']:
+                    break
+                
+                # Parse command
+                parts = command.split()
+                cmd = parts[0].lower()
+                
+                if cmd == "status":
+                    rate_limit = github_client.get_rate_limit_status()
+                    if "error" not in rate_limit:
+                        if "core" in rate_limit:
+                            core = rate_limit["core"]
+                            print(f"API Rate Limit: {core['remaining']}/{core['limit']} remaining")
+                        print(f"User: {github_client.get_authenticated_user()}")
+                    else:
+                        print(f"Error: {rate_limit['error']}")
+                
+                elif cmd == "repos":
+                    repos = github_client.list_repositories()
+                    if repos:
+                        for repo in repos[:5]:  # Show first 5 in interactive mode
+                            if hasattr(repo, 'full_name'):
+                                print(f"  {repo.full_name} - {repo.description or 'No description'}")
+                            else:
+                                print(f"  {repo.get('full_name')} - {repo.get('description') or 'No description'}")
+                    else:
+                        print("No repositories found.")
+                
+                elif cmd == "create" and len(parts) > 1:
+                    repo_name = parts[1]
+                    description = " ".join(parts[2:]) if len(parts) > 2 else "Created from MeistroCraft"
+                    
+                    try:
+                        repo = github_client.create_repository(repo_name, description)
+                        if hasattr(repo, 'html_url'):
+                            print(f"✅ Created: {repo.html_url}")
+                        else:
+                            print(f"✅ Created: {repo.get('html_url')}")
+                    except GitHubClientError as e:
+                        print(f"❌ Error: {e}")
+                
+                elif cmd == "fork" and len(parts) > 1:
+                    repo_name = parts[1]
+                    if '/' not in repo_name:
+                        print("❌ Repository name must be in format 'owner/repo'")
+                        continue
+                    
+                    try:
+                        forked_repo = github_client.fork_repository(repo_name)
+                        if hasattr(forked_repo, 'html_url'):
+                            print(f"✅ Forked: {forked_repo.html_url}")
+                        else:
+                            print(f"✅ Forked: {forked_repo.get('html_url')}")
+                    except GitHubClientError as e:
+                        print(f"❌ Error: {e}")
+                
+                else:
+                    print("❌ Unknown command. Available: 'repos', 'create <name>', 'fork <owner/repo>', 'status', 'quit'")
+                    
+            except KeyboardInterrupt:
+                print("\n👋 Goodbye!")
+                break
+            except Exception as e:
+                print(f"❌ Error: {e}")
+    
     else:
         # Default: run example task
         print("🔧 Running example task (use --interactive or --request for GPT-4 mode)")
@@ -1589,6 +1899,17 @@ def main():
     print(f"  meistrocraft --token-usage [days]             # Show token usage statistics")
     print(f"  meistrocraft --set-token-limits               # Configure usage limits")
     print(f"  meistrocraft --export-usage [days]            # Export usage report to CSV")
+    print(f"\n🐙 GitHub Integration Commands:")
+    print(f"  meistrocraft --github test                    # Test GitHub connection")
+    print(f"  meistrocraft --github status                  # Show GitHub API status")
+    print(f"  meistrocraft --github repos                   # List your repositories")
+    print(f"  meistrocraft --github create myrepo           # Create new repository")
+    print(f"  meistrocraft --github fork owner/repo         # Fork a repository")
+    print(f"  meistrocraft --github-interactive             # GitHub interactive mode")
+    print(f"\n🔄 GitHub Workflow Commands (Phase 2):")
+    print(f"  meistrocraft --github prs owner/repo          # List pull requests")
+    print(f"  meistrocraft --github issues owner/repo       # List issues")
+    print(f"  meistrocraft --github workflow owner/repo     # Show workflow status")
     print(f"  meistrocraft --memory-status                  # Show persistent memory status")
     print(f"  meistrocraft --memory-cleanup                 # Clean up old memory entries")
     print(f"  meistrocraft --memory-export                  # Export memory report")

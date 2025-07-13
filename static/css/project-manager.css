@@ -240,12 +240,8 @@
 .project-actions-card {
     display: flex;
     gap: 8px;
-    opacity: 0;
-    transition: opacity 0.2s ease;
-}
-
-.project-card:hover .project-actions-card {
     opacity: 1;
+    transition: opacity 0.2s ease;
 }
 
 .project-btn {

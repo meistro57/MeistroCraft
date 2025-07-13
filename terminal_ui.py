@@ -86,8 +86,8 @@ class MeistroCraftUI:
         # Split into header, main content, and footer
         layout.split_column(
             Layout(name="header", size=3),
-            Layout(name="main"),
-            Layout(name="footer", size=3)
+            Layout(name="main", minimum_size=10),
+            Layout(name="footer", size=2)
         )
         
         # Split main content into left (conversation) and right (status)
@@ -98,8 +98,8 @@ class MeistroCraftUI:
         
         # Split conversation into input and output
         layout["conversation"].split_column(
-            Layout(name="output", ratio=3),
-            Layout(name="input", size=5)
+            Layout(name="output", minimum_size=5),
+            Layout(name="input", size=4)
         )
         
         return layout
@@ -274,6 +274,12 @@ class MeistroCraftUI:
             Text("  /priority <id> <level> - Set task priority (low/medium/high/urgent)"),
             Text("  /auto-accept <level>   - Set auto-accept level (none/safe/trusted/aggressive)"),
             Text("  /auto-status   - Show auto-accept configuration"),
+            Text("  /cleanup-sessions      - Clean up old session files"),
+            Text("  /repair-sessions       - Repair corrupted session files"),
+            Text("  /delete-session <id>   - Delete a specific session"),
+            Text("  /test          - Run project tests"),
+            Text("  /run           - Run the application"),
+            Text("  /build         - Build the project"),
             Text("  /clear         - Clear conversation"),
             Text("  /quit          - Exit application"),
             Text(""),
@@ -475,12 +481,23 @@ class AsyncInput:
             else:
                 self.ui.add_message("system", "Token tracking not available.")
         elif cmd == '/sessions':
-            self.ui.add_message("system", "Use ./meistrocraft --sessions to list all sessions")
+            # Send command back to main handler for proper processing
+            self.input_callback(command)
         elif cmd == '/context':
-            if self.ui.status.session_id:
-                self.ui.add_message("system", f"Current session: {self.ui.status.session_id}")
-            else:
-                self.ui.add_message("system", "No active session")
+            # Send command back to main handler for proper processing
+            self.input_callback(command)
+        elif cmd.startswith('/cleanup-sessions'):
+            self.input_callback(command)
+        elif cmd.startswith('/repair-sessions'):
+            self.input_callback(command)
+        elif cmd.startswith('/delete-session'):
+            self.input_callback(command)
+        elif cmd.startswith('/test'):
+            self.input_callback(command)
+        elif cmd.startswith('/run'):
+            self.input_callback(command)
+        elif cmd.startswith('/build'):
+            self.input_callback(command)
         else:
             self.ui.add_message("system", f"Unknown command: {command}. Type /help for available commands.")
 

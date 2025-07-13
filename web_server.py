@@ -30,6 +30,7 @@ from task_queue import get_task_queue, TaskPriority, TaskStatus
 from workspace_manager import WorkspaceManager
 from token_tracker import TokenTracker
 from main import SessionManager, load_config, setup_environment, generate_task_with_gpt4, run_claude_task
+from claude_squad_bridge import squad_bridge, SquadAgentType, SquadSession
 
 app = FastAPI(
     title="MeistroCraft IDE",
@@ -245,6 +246,384 @@ async def save_settings(request: Request):
         return {
             "status": "saved",
             "timestamp": datetime.now().isoformat()
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/config")
+async def get_api_config():
+    """Get API configuration status."""
+    try:
+        config_status = {
+            "openai": {
+                "configured": False,
+                "model": None,
+                "status": "not_configured"
+            },
+            "anthropic": {
+                "configured": False,
+                "model": None,
+                "status": "not_configured"
+            },
+            "github": {
+                "configured": False,
+                "username": None,
+                "status": "not_configured"
+            }
+        }
+        
+        if session_manager.config:
+            # Check OpenAI configuration
+            if session_manager.config.get("openai_api_key"):
+                config_status["openai"]["configured"] = True
+                config_status["openai"]["model"] = session_manager.config.get("openai_model", "gpt-4")
+                config_status["openai"]["status"] = "configured"
+            
+            # Check Anthropic configuration
+            if session_manager.config.get("anthropic_api_key"):
+                config_status["anthropic"]["configured"] = True
+                config_status["anthropic"]["model"] = session_manager.config.get("claude_model", "claude-3-sonnet")
+                config_status["anthropic"]["status"] = "configured"
+            
+            # Check GitHub configuration
+            if session_manager.config.get("github_api_key"):
+                config_status["github"]["configured"] = True
+                config_status["github"]["status"] = "configured"
+        
+        return config_status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/test-api-key")
+async def test_api_key(request: Request):
+    """Test an API key for validity."""
+    try:
+        body = await request.json()
+        provider = body.get("provider")  # "openai", "anthropic", or "github"
+        api_key = body.get("api_key")
+        
+        if not provider or not api_key:
+            raise HTTPException(status_code=400, detail="Provider and API key required")
+        
+        if provider == "github":
+            # Test GitHub API key
+            try:
+                import requests
+                headers = {
+                    "Authorization": f"token {api_key}",
+                    "Accept": "application/vnd.github.v3+json"
+                }
+                response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
+                
+                if response.status_code == 200:
+                    user_data = response.json()
+                    return {
+                        "provider": provider,
+                        "status": "valid",
+                        "message": f"Authenticated as {user_data.get('login')}",
+                        "username": user_data.get("login")
+                    }
+                else:
+                    return {
+                        "provider": provider,
+                        "status": "invalid",
+                        "message": f"GitHub API error: {response.status_code}"
+                    }
+            except Exception as e:
+                return {
+                    "provider": provider,
+                    "status": "invalid",
+                    "message": f"GitHub API test failed: {str(e)}"
+                }
+        elif provider == "openai":
+            # Test OpenAI API key
+            try:
+                import openai
+                client = openai.OpenAI(api_key=api_key)
+                # Simple test call
+                response = client.models.list()
+                return {
+                    "provider": provider,
+                    "status": "valid",
+                    "message": "API key is valid"
+                }
+            except Exception as e:
+                return {
+                    "provider": provider,
+                    "status": "invalid",
+                    "message": str(e)
+                }
+        
+        elif provider == "anthropic":
+            # Test Anthropic API key
+            try:
+                import requests
+                headers = {
+                    "x-api-key": api_key,
+                    "anthropic-version": "2023-06-01",
+                    "content-type": "application/json"
+                }
+                
+                # Simple test call to check key validity
+                test_data = {
+                    "model": "claude-3-haiku-20240307",
+                    "max_tokens": 10,
+                    "messages": [{"role": "user", "content": "Hi"}]
+                }
+                
+                response = requests.post(
+                    "https://api.anthropic.com/v1/messages",
+                    headers=headers,
+                    json=test_data,
+                    timeout=30
+                )
+                
+                if response.status_code == 200:
+                    return {
+                        "provider": provider,
+                        "status": "valid",
+                        "message": "API key is valid"
+                    }
+                else:
+                    return {
+                        "provider": provider,
+                        "status": "invalid",
+                        "message": f"API returned status {response.status_code}"
+                    }
+            except Exception as e:
+                return {
+                    "provider": provider,
+                    "status": "invalid",
+                    "message": str(e)
+                }
+        
+        else:
+            raise HTTPException(status_code=400, detail="Unsupported provider")
+            
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/github/repositories")
+async def get_github_repositories():
+    """Get user's GitHub repositories."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        repositories = client.list_repositories()
+        return {
+            "repositories": repositories,
+            "total": len(repositories)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/github/repository")
+async def create_github_repository(request: Request):
+    """Create a new GitHub repository."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        body = await request.json()
+        name = body.get("name")
+        description = body.get("description", "")
+        private = body.get("private", False)
+        
+        if not name:
+            raise HTTPException(status_code=400, detail="Repository name is required")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        repository = client.create_repository(name, description, private)
+        return repository
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/github/repository/{owner}/{repo}/fork")
+async def fork_github_repository(owner: str, repo: str):
+    """Fork a GitHub repository."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        fork = client.fork_repository(owner, repo)
+        return fork
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/github/repository/{owner}/{repo}/contents")
+async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
+    """Get contents of a GitHub repository directory."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        # List directory contents
+        import requests
+        url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
+        headers = {
+            "Authorization": f"token {session_manager.config['github_api_key']}",
+            "Accept": "application/vnd.github.v3+json"
+        }
+        
+        response = requests.get(url, headers=headers)
+        if response.status_code == 200:
+            return response.json()
+        else:
+            raise HTTPException(status_code=response.status_code, detail="Failed to get repository contents")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/github/repository/{owner}/{repo}/file")
+async def get_github_file(owner: str, repo: str, path: str):
+    """Get a specific file from GitHub repository."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        file_data = client.get_file_content(owner, repo, path)
+        return file_data
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/github/repository/{owner}/{repo}/file")
+async def create_github_file(owner: str, repo: str, request: Request):
+    """Create a new file in GitHub repository."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        body = await request.json()
+        path = body.get("path")
+        content = body.get("content")
+        message = body.get("message", f"Create {path}")
+        branch = body.get("branch", "main")
+        
+        if not path or content is None:
+            raise HTTPException(status_code=400, detail="Path and content are required")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        result = client.create_file(owner, repo, path, content, message, branch)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.put("/api/github/repository/{owner}/{repo}/file")
+async def update_github_file(owner: str, repo: str, request: Request):
+    """Update an existing file in GitHub repository."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        body = await request.json()
+        path = body.get("path")
+        content = body.get("content")
+        message = body.get("message", f"Update {path}")
+        sha = body.get("sha")
+        branch = body.get("branch", "main")
+        
+        if not path or content is None or not sha:
+            raise HTTPException(status_code=400, detail="Path, content, and SHA are required")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        result = client.update_file(owner, repo, path, content, message, sha, branch)
+        return result
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/github/sync-project")
+async def sync_project_to_github(request: Request):
+    """Sync current project to GitHub repository."""
+    try:
+        if not session_manager.config or not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        
+        body = await request.json()
+        owner = body.get("owner")
+        repo = body.get("repo")
+        project_path = body.get("project_path")
+        branch = body.get("branch", "main")
+        
+        if not owner or not repo or not project_path:
+            raise HTTPException(status_code=400, detail="Owner, repo, and project_path are required")
+        
+        # Check if project path exists and is within projects directory
+        import os
+        full_project_path = os.path.join(os.getcwd(), "projects", project_path)
+        if not os.path.exists(full_project_path):
+            raise HTTPException(status_code=404, detail="Project path not found")
+        
+        from github_client import GitHubClient
+        client = GitHubClient(session_manager.config["github_api_key"])
+        
+        synced_files = []
+        failed_files = []
+        
+        # Walk through project directory and sync files
+        for root, dirs, files in os.walk(full_project_path):
+            for file in files:
+                local_file_path = os.path.join(root, file)
+                relative_path = os.path.relpath(local_file_path, full_project_path)
+                
+                try:
+                    # Read local file content
+                    with open(local_file_path, 'r', encoding='utf-8') as f:
+                        content = f.read()
+                    
+                    # Try to get existing file from GitHub
+                    try:
+                        existing_file = client.get_file_content(owner, repo, relative_path, branch)
+                        # File exists, update it
+                        result = client.update_file(
+                            owner, repo, relative_path, content,
+                            f"Sync: Update {relative_path}", existing_file["sha"], branch
+                        )
+                        synced_files.append({
+                            "path": relative_path,
+                            "action": "updated",
+                            "sha": result["content"]["sha"]
+                        })
+                    except:
+                        # File doesn't exist, create it
+                        result = client.create_file(
+                            owner, repo, relative_path, content,
+                            f"Sync: Create {relative_path}", branch
+                        )
+                        synced_files.append({
+                            "path": relative_path,
+                            "action": "created",
+                            "sha": result["content"]["sha"]
+                        })
+                        
+                except Exception as e:
+                    failed_files.append({
+                        "path": relative_path,
+                        "error": str(e)
+                    })
+        
+        return {
+            "synced_files": synced_files,
+            "failed_files": failed_files,
+            "total_synced": len(synced_files),
+            "total_failed": len(failed_files)
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
@@ -634,6 +1013,148 @@ async def import_project(request: Request):
         
         return {"success": True, "project_path": str(target_path)}
         
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+# Claude-Squad Integration Endpoints
+
+@app.get("/api/squad/status")
+async def get_squad_status():
+    """Check claude-squad installation and status."""
+    try:
+        status = await squad_bridge.check_installation()
+        return status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/squad/install")
+async def install_squad():
+    """Install claude-squad if not present."""
+    try:
+        result = await squad_bridge.install_squad()
+        if result["success"]:
+            return result
+        else:
+            raise HTTPException(status_code=500, detail=result["error"])
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/squad/sessions")
+async def list_squad_sessions():
+    """List all active claude-squad sessions."""
+    try:
+        sessions = await squad_bridge.list_sessions()
+        return {
+            "sessions": [
+                {
+                    "id": session.session_id,
+                    "agent_type": session.agent_type.value,
+                    "project_path": session.project_path,
+                    "branch_name": session.branch_name,
+                    "status": session.status,
+                    "created_at": session.created_at,
+                    "last_activity": session.last_activity,
+                    "tmux_session": session.tmux_session
+                }
+                for session in sessions
+            ]
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/squad/sessions")
+async def create_squad_session(request: Request):
+    """Create a new claude-squad session."""
+    try:
+        body = await request.json()
+        project_path = body.get("project_path")
+        agent_type = body.get("agent_type", "claude-code")
+        session_name = body.get("session_name")
+        auto_accept = body.get("auto_accept", False)
+        
+        if not project_path:
+            raise HTTPException(status_code=400, detail="Project path is required")
+        
+        # Validate agent type
+        try:
+            agent_enum = SquadAgentType(agent_type)
+        except ValueError:
+            raise HTTPException(status_code=400, detail=f"Invalid agent type: {agent_type}")
+        
+        session = await squad_bridge.create_session(
+            project_path=project_path,
+            agent_type=agent_enum,
+            session_name=session_name,
+            auto_accept=auto_accept
+        )
+        
+        return {
+            "success": True,
+            "session": {
+                "id": session.session_id,
+                "agent_type": session.agent_type.value,
+                "project_path": session.project_path,
+                "branch_name": session.branch_name,
+                "status": session.status,
+                "created_at": session.created_at,
+                "tmux_session": session.tmux_session
+            }
+        }
+        
+    except Exception as e:
+        if "SquadInstallationError" in str(type(e)):
+            raise HTTPException(status_code=503, detail="Claude-squad not installed")
+        elif "SquadSessionError" in str(type(e)):
+            raise HTTPException(status_code=400, detail=str(e))
+        else:
+            raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/squad/sessions/{session_id}/execute")
+async def execute_squad_command(session_id: str, request: Request):
+    """Execute a command in a squad session."""
+    try:
+        body = await request.json()
+        command = body.get("command")
+        timeout = body.get("timeout", 300)
+        
+        if not command:
+            raise HTTPException(status_code=400, detail="Command is required")
+        
+        result = await squad_bridge.execute_command(
+            session_id=session_id,
+            command=command,
+            timeout=timeout
+        )
+        
+        return result
+        
+    except Exception as e:
+        if "SquadSessionError" in str(type(e)):
+            raise HTTPException(status_code=404, detail=str(e))
+        else:
+            raise HTTPException(status_code=500, detail=str(e))
+
+@app.delete("/api/squad/sessions/{session_id}")
+async def terminate_squad_session(session_id: str):
+    """Terminate a claude-squad session."""
+    try:
+        success = await squad_bridge.terminate_session(session_id)
+        if success:
+            return {"success": True, "message": f"Session {session_id} terminated"}
+        else:
+            raise HTTPException(status_code=400, detail="Failed to terminate session")
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.get("/api/squad/sessions/{session_id}/status")
+async def get_squad_session_status(session_id: str):
+    """Get detailed status of a squad session."""
+    try:
+        status = await squad_bridge.get_session_status(session_id)
+        if status:
+            return status
+        else:
+            raise HTTPException(status_code=404, detail="Session not found")
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -1323,13 +1844,47 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
             import subprocess
             import shlex
             
+            # Get session data to determine project folder
+            session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
+            project_folder = session_data.get("project_folder") if session_data else None
+            
+            # Determine working directory
+            if project_folder and os.path.exists(project_folder):
+                working_dir = project_folder
+            else:
+                # If no project folder or empty projects, use projects directory with template
+                projects_dir = os.path.join(os.getcwd(), "projects")
+                if not os.path.exists(projects_dir):
+                    os.makedirs(projects_dir)
+                
+                # Create template CLAUDE.md if it doesn't exist
+                template_claude_path = os.path.join(projects_dir, "CLAUDE.md")
+                if not os.path.exists(template_claude_path):
+                    template_content = """# Project Instructions
+
+This is a template CLAUDE.md file for your project.
+
+## Overview
+Add your project description here.
+
+## Setup Instructions
+Add setup instructions here.
+
+## Development Guidelines
+Add development guidelines here.
+"""
+                    with open(template_claude_path, 'w') as f:
+                        f.write(template_content)
+                
+                working_dir = projects_dir
+            
             # Execute command safely
             result = subprocess.run(
                 shlex.split(command), 
                 capture_output=True, 
                 text=True, 
                 timeout=30,  # 30 second timeout
-                cwd=os.getcwd()
+                cwd=working_dir
             )
             
             output = f"$ {command}\n"
@@ -1455,26 +2010,28 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
     elif message_type == "get_tasks":
         # Get task queue status
         try:
-            # Mock task data for demo - in real implementation would use task_queue
-            tasks = [
-                {
-                    "id": "1",
-                    "name": "Install dependencies",
-                    "status": "completed",
-                    "completed_at": (datetime.now() - timedelta(minutes=2)).isoformat()
-                },
-                {
-                    "id": "2", 
-                    "name": "Running tests",
-                    "status": "running",
-                    "started_at": datetime.now().isoformat()
-                },
-                {
-                    "id": "3",
-                    "name": "Build project", 
-                    "status": "pending"
-                }
-            ]
+            # Get real task data from session
+            session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
+            tasks = []
+            
+            if session_data and "task_history" in session_data:
+                # Convert task history to current task format
+                for i, task_entry in enumerate(session_data["task_history"][-3:]):  # Show last 3 tasks
+                    task_data = task_entry.get("task", {})
+                    result_data = task_entry.get("result", {})
+                    
+                    status = "completed" if task_entry.get("success", False) else "failed"
+                    
+                    tasks.append({
+                        "id": str(i + 1),
+                        "name": task_data.get("instruction", "Unknown task")[:50] + "...",
+                        "status": status,
+                        "completed_at": task_entry.get("timestamp", datetime.now().isoformat())
+                    })
+            
+            # If no tasks, show empty state
+            if not tasks:
+                tasks = []
             
             response = {
                 "type": "task_queue_response",
@@ -1488,6 +2045,133 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                 "session_id": session_id,
                 "timestamp": datetime.now().isoformat(),
                 "error": f"Failed to get tasks: {str(e)}"
+            }
+        
+        await websocket.send_text(json.dumps(response))
+        
+    elif message_type == "squad_command":
+        # Handle claude-squad commands via WebSocket
+        operation = message.get("operation")
+        
+        try:
+            if operation == "status":
+                # Get squad installation status
+                status = await squad_bridge.check_installation()
+                response = {
+                    "type": "squad_response",
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "operation": operation,
+                    "data": status
+                }
+            
+            elif operation == "list_sessions":
+                # List active squad sessions
+                sessions = await squad_bridge.list_sessions()
+                response = {
+                    "type": "squad_response",
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "operation": operation,
+                    "data": {
+                        "sessions": [
+                            {
+                                "id": session.session_id,
+                                "agent_type": session.agent_type.value,
+                                "project_path": session.project_path,
+                                "status": session.status
+                            }
+                            for session in sessions
+                        ]
+                    }
+                }
+            
+            elif operation == "create_session":
+                # Create new squad session
+                project_path = message.get("project_path")
+                agent_type = message.get("agent_type", "claude-code")
+                
+                if not project_path:
+                    raise ValueError("Project path is required")
+                
+                try:
+                    agent_enum = SquadAgentType(agent_type)
+                except ValueError:
+                    raise ValueError(f"Invalid agent type: {agent_type}")
+                
+                session = await squad_bridge.create_session(
+                    project_path=project_path,
+                    agent_type=agent_enum
+                )
+                
+                response = {
+                    "type": "squad_response",
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "operation": operation,
+                    "data": {
+                        "success": True,
+                        "session": {
+                            "id": session.session_id,
+                            "agent_type": session.agent_type.value,
+                            "project_path": session.project_path,
+                            "status": session.status
+                        }
+                    }
+                }
+            
+            elif operation == "execute":
+                # Execute command in squad session
+                squad_session_id = message.get("squad_session_id")
+                command = message.get("command")
+                
+                if not squad_session_id or not command:
+                    raise ValueError("Squad session ID and command are required")
+                
+                # Send start message
+                await websocket.send_text(json.dumps({
+                    "type": "squad_response",
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "operation": "execute_start",
+                    "data": {
+                        "squad_session_id": squad_session_id,
+                        "command": command
+                    }
+                }))
+                
+                result = await squad_bridge.execute_command(
+                    session_id=squad_session_id,
+                    command=command
+                )
+                
+                response = {
+                    "type": "squad_response",
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "operation": "execute_complete",
+                    "data": {
+                        "squad_session_id": squad_session_id,
+                        "result": result
+                    }
+                }
+            
+            else:
+                response = {
+                    "type": "squad_response",
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "operation": operation,
+                    "data": {"error": f"Unknown squad operation: {operation}"}
+                }
+        
+        except Exception as e:
+            response = {
+                "type": "squad_response",
+                "session_id": session_id,
+                "timestamp": datetime.now().isoformat(),
+                "operation": operation,
+                "data": {"error": str(e)}
             }
         
         await websocket.send_text(json.dumps(response))

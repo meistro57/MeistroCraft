@@ -1,0 +1,161 @@
+{
+  "project_name": "MeistroCraft AI IDE",
+  "description": "Browser-based AI-powered IDE with real-time code editing and intelligent assistance",
+  "architecture": {
+    "backend": {
+      "main_server": {
+        "file": "web_server.py",
+        "description": "FastAPI web server with WebSocket handlers",
+        "key_functions": [
+          "websocket_endpoint (line ~1400): Main WebSocket handler",
+          "execute_command (line ~1574): Terminal command execution", 
+          "chat_handler (line ~1465): AI chat message processing",
+          "file_operations (line ~400): File read/write/list operations",
+          "get_tasks (line ~1745): Background task status",
+          "sessions_endpoint (line ~160): Session management"
+        ]
+      },
+      "core_logic": {
+        "file": "main.py",
+        "description": "Core MeistroCraft backend integration",
+        "key_functions": [
+          "generate_task_with_gpt4: Task generation",
+          "execute_task_with_claude: Task execution",
+          "session management: Session lifecycle"
+        ]
+      },
+      "session_management": {
+        "files": ["session_manager.py", "workspace_manager.py"],
+        "description": "Handles user sessions and project workspaces"
+      }
+    },
+    "frontend": {
+      "main_ide": {
+        "file": "static/js/ide.js", 
+        "description": "Main IDE frontend logic",
+        "key_classes_functions": [
+          "class IDE: Main IDE controller",
+          "createTab (line ~320): Tab management",
+          "loadFiles (line ~400): File loading",
+          "saveFile (line ~450): File saving", 
+          "openPreviewWindow (line ~521): Popup preview functionality",
+          "connectWebSocket (line ~1350): WebSocket connection",
+          "handleWebSocketMessage (line ~1380): Message handling"
+        ]
+      },
+      "project_management": {
+        "file": "static/js/project-manager.js",
+        "description": "Project lifecycle management",
+        "key_functions": [
+          "class ProjectManager: Main project manager",
+          "loadProjects (line ~191): Load project list",
+          "createNewProject (line ~730): Create new project",
+          "openProject (line ~709): Open existing project",
+          "deleteProject (line ~802): Delete project"
+        ]
+      },
+      "project_wizard": {
+        "file": "static/js/project-wizard.js", 
+        "description": "New project creation wizard",
+        "key_functions": [
+          "class ProjectWizard: Step-by-step project creation",
+          "show: Display wizard",
+          "nextStep: Navigate wizard steps"
+        ]
+      }
+    },
+    "templates": {
+      "main_interface": {
+        "file": "templates/ide.html",
+        "description": "Main IDE HTML template",
+        "key_sections": [
+          "lines 24-41: CSS Grid layout structure",
+          "lines 482-492: Status bar styling", 
+          "lines 1820: New project button",
+          "lines 2038: Preview toggle button",
+          "lines 2270-2275: showProjectWizard function"
+        ]
+      }
+    },
+    "static_assets": {
+      "css": {
+        "files": ["static/css/project-manager.css", "static/css/wizard.css"],
+        "description": "Styling for components"
+      },
+      "js_utilities": {
+        "file": "static/js/simple-resize.js",
+        "description": "Panel resizing functionality"
+      }
+    }
+  },
+  "data_flow": {
+    "user_interaction": [
+      "1. User interacts with frontend (ide.html)",
+      "2. JavaScript (ide.js) handles UI events", 
+      "3. WebSocket messages sent to web_server.py",
+      "4. Backend processes and calls main.py functions",
+      "5. Response sent back via WebSocket",
+      "6. Frontend updates UI accordingly"
+    ],
+    "file_operations": [
+      "1. User opens/saves files via IDE interface",
+      "2. File operations routed through web_server.py", 
+      "3. Security validation (projects folder only)",
+      "4. File system operations performed",
+      "5. Results returned to frontend"
+    ],
+    "ai_integration": [
+      "1. User sends chat message",
+      "2. Context enhanced with current file info",
+      "3. GPT-4 generates task via main.py",
+      "4. Claude executes task via main.py", 
+      "5. Streaming results sent to frontend",
+      "6. UI updates with AI responses"
+    ]
+  },
+  "key_directories": {
+    "projects/": "User project workspaces (sandboxed)",
+    "sessions/": "Session data storage",
+    "config/": "API configuration files",
+    "templates/": "HTML templates",
+    "static/": "Frontend assets (CSS, JS)",
+    "tasks/": "Task definition examples"
+  },
+  "security_features": [
+    "Path traversal protection in file operations",
+    "Project folder sandboxing", 
+    "Command timeout limits (30 seconds)",
+    "Session isolation",
+    "Input sanitization with shlex"
+  ],
+  "websocket_message_types": {
+    "client_to_server": [
+      "chat: AI assistance requests",
+      "command: Terminal commands", 
+      "file_operation: File read/write/list",
+      "get_tasks: Task queue status"
+    ],
+    "server_to_client": [
+      "chat_response_chunk: Streaming AI responses",
+      "chat_response_complete: End of AI response", 
+      "command_response: Terminal output",
+      "file_response: File operation results",
+      "task_queue_response: Background tasks"
+    ]
+  },
+  "common_file_locations": {
+    "preview_functionality": "static/js/ide.js lines 516-710",
+    "terminal_commands": "web_server.py lines 1574-1650", 
+    "project_creation": "static/js/project-manager.js lines 730-743",
+    "websocket_handling": "web_server.py lines 1400-1800",
+    "file_operations": "web_server.py lines 400-500",
+    "session_management": "web_server.py lines 160-180",
+    "ai_chat_processing": "web_server.py lines 1465-1570"
+  },
+  "recent_changes": {
+    "preview_popup": "Modified togglePreview() to open popup window with scroll (static/js/ide.js)",
+    "terminal_directory": "Fixed terminal commands to use projects directory (web_server.py)",
+    "background_tasks": "Replaced mock data with real task history (web_server.py)",
+    "new_project_button": "Fixed createNewProject() function call (static/js/project-manager.js)"
+  }
+}

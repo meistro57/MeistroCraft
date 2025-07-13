@@ -22,20 +22,28 @@
         }
         
         .ide-container {
-            display: grid;
-            grid-template-areas: 
-                "sidebar editor chat"
-                "sidebar terminal chat";
-            grid-template-columns: 300px 1fr 300px;
-            grid-template-rows: 1fr 200px;
-            height: calc(100vh - 25px); /* Reserve space for status bar */
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 35px); /* Reserve space for status bar */
             position: relative;
+        }
+        
+        .ide-top-row {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        .ide-bottom-row {
+            display: flex;
+            height: 200px;
+            border-top: 1px solid #3e3e42;
         }
         
         /* Resize handles */
         .resize-handle {
             position: absolute;
-            background: rgba(255, 0, 0, 0.1); /* Temporary visible background for debugging */
+            background: transparent;
             z-index: 1000;
         }
         
@@ -62,17 +70,35 @@
         }
         
         .resize-sidebar {
-            left: calc(300px - 4px); /* Position at sidebar edge */
+            left: 296px;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            top: 0;
         }
         
         .resize-chat {
-            right: calc(300px - 4px); /* Position at chat panel edge */
+            right: 296px;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            top: 0;
         }
         
         .resize-terminal {
-            top: calc(100% - 200px - 4px); /* Position at terminal edge */
-            left: 300px;
-            right: 300px;
+            bottom: 196px;
+            left: 0;
+            right: 0;
+            height: 8px;
+            cursor: row-resize;
+        }
+        
+        .resize-tasks {
+            bottom: 0;
+            left: 296px;
+            width: 8px;
+            height: 200px;
+            cursor: col-resize;
         }
         
         /* Prevent text selection during resize */
@@ -84,18 +110,20 @@
         }
         
         .sidebar {
-            grid-area: sidebar;
+            width: 300px;
             background: #252526;
             border-right: 1px solid #3e3e42;
             padding: 10px;
+            flex-shrink: 0;
         }
         
         .editor-container {
-            grid-area: editor;
+            flex: 1;
             background: #1e1e1e;
             position: relative;
             display: flex;
             flex-direction: column;
+            min-width: 0;
         }
         
         .editor-tabs {
@@ -354,24 +382,45 @@
         }
         
         .chat-container {
-            grid-area: chat;
+            width: 300px;
             background: #2d2d30;
             border-left: 1px solid #3e3e42;
             display: flex;
             flex-direction: column;
             padding-bottom: 5px; /* Space for status bar */
+            flex-shrink: 0;
+        }
+        
+        .tasks-container {
+            width: 300px;
+            background: #1e1e1e;
+            border-right: 1px solid #3e3e42;
+            overflow: hidden;
+            box-sizing: border-box;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        
+        .tasks-container .terminal-header {
+            background: #2d2d30;
+            padding: 8px 15px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
         }
         
         .terminal-container {
-            grid-area: terminal;
+            flex: 1;
             background: #0c0c0c;
-            border-top: 1px solid #3e3e42;
             padding: 10px;
             padding-bottom: 40px; /* Extra space for status bar */
             overflow-y: auto;
             font-family: 'Consolas', 'Monaco', monospace;
-            height: calc(100% - 15px); /* Ensure proper height calculation */
             box-sizing: border-box;
+            min-width: 0;
         }
         
         .file-explorer {
@@ -435,15 +484,17 @@
             bottom: 0;
             left: 0;
             right: 0;
-            height: 25px;
-            background: #007acc;
+            height: 30px;
+            background: linear-gradient(135deg, #1e3c72 0%, #2a5298 50%, #007acc 100%);
             color: white;
             display: flex;
             align-items: center;
-            padding: 0 10px;
+            padding: 0 15px;
             font-size: 12px;
-            z-index: 1000; /* Ensure it's on top but not blocking UI elements */
-            border-top: 1px solid #0058a3;
+            z-index: 1000;
+            border-top: 2px solid #0088ff;
+            box-shadow: 0 -2px 10px rgba(0, 0, 0, 0.3);
+            font-family: 'Courier New', monospace;
         }
         
         .status-item {
@@ -542,8 +593,7 @@
         
         .task-queue {
             padding: 10px;
-            padding-bottom: 50px; /* Extra space for status bar */
-            height: calc(100% - 60px); /* Adjust for padding */
+            height: calc(100% - 60px); /* Adjust for header */
             overflow-y: auto;
             box-sizing: border-box;
         }
@@ -963,6 +1013,39 @@
             font-size: 14px;
             border-bottom: 1px solid #5e5e5e;
             padding-bottom: 8px;
+            cursor: pointer;
+            user-select: none;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            transition: color 0.2s ease;
+        }
+        
+        .settings-section h4:hover {
+            color: #007acc;
+        }
+        
+        .settings-section h4::after {
+            content: '▼';
+            font-size: 12px;
+            transition: transform 0.2s ease;
+        }
+        
+        .settings-section.collapsed h4::after {
+            transform: rotate(-90deg);
+        }
+        
+        .settings-content {
+            transition: max-height 0.3s ease, opacity 0.2s ease;
+            overflow: hidden;
+            max-height: 1000px;
+            opacity: 1;
+        }
+        
+        .settings-section.collapsed .settings-content {
+            max-height: 0;
+            opacity: 0;
+            margin-bottom: 0;
         }
         
         .setting-item {
@@ -1063,6 +1146,681 @@
         .btn-secondary:hover {
             background: #37373d;
         }
+        
+        /* Winamp-style Progress and Activity Indicators */
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 0.7; }
+            50% { opacity: 1; }
+            100% { opacity: 0.7; }
+        }
+        
+        @keyframes colorCycle {
+            0% { color: #00ff00; }
+            25% { color: #ffff00; }
+            50% { color: #ff00ff; }
+            75% { color: #00ffff; }
+            100% { color: #00ff00; }
+        }
+        
+        @keyframes bounceBar {
+            0%, 100% { transform: scaleY(0.3); }
+            50% { transform: scaleY(1); }
+        }
+        
+        @keyframes slideIn {
+            0% { transform: translateX(-100%); }
+            100% { transform: translateX(0); }
+        }
+        
+        .spinner {
+            display: inline-block;
+            animation: spin 1s linear infinite;
+            margin-right: 5px;
+        }
+        
+        .activity-indicator {
+            display: inline-flex;
+            align-items: center;
+            gap: 2px;
+            margin-right: 8px;
+        }
+        
+        .activity-bar {
+            width: 3px;
+            height: 12px;
+            background: #00ff00;
+            animation: bounceBar 0.6s ease-in-out infinite;
+        }
+        
+        .activity-bar:nth-child(2) { animation-delay: 0.1s; }
+        .activity-bar:nth-child(3) { animation-delay: 0.2s; }
+        .activity-bar:nth-child(4) { animation-delay: 0.3s; }
+        .activity-bar:nth-child(5) { animation-delay: 0.4s; }
+        
+        .status-item.animated {
+            animation: colorCycle 3s ease-in-out infinite;
+        }
+        
+        .winamp-progress {
+            position: relative;
+            background: #1a1a1a;
+            border: 1px inset #666;
+            height: 8px;
+            width: 100px;
+            margin: 0 8px;
+            overflow: hidden;
+        }
+        
+        .winamp-progress-bar {
+            height: 100%;
+            background: linear-gradient(90deg, #00ff00, #ffff00, #ff00ff);
+            width: 0%;
+            transition: width 0.3s ease;
+            animation: slideIn 0.5s ease-out;
+        }
+        
+        .ai-processing {
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            background: rgba(0, 255, 0, 0.1);
+            padding: 2px 8px;
+            border-radius: 12px;
+            border: 1px solid #00ff00;
+            animation: pulse 1.5s ease-in-out infinite;
+        }
+        
+        .matrix-text {
+            font-family: 'Courier New', monospace;
+            color: #00ff00;
+            text-shadow: 0 0 5px #00ff00;
+            animation: colorCycle 2s linear infinite;
+        }
+        
+        .cpu-usage {
+            display: flex;
+            gap: 1px;
+            align-items: end;
+            height: 16px;
+            width: 40px;
+        }
+        
+        .cpu-bar {
+            flex: 1;
+            background: #00ff00;
+            border-radius: 1px 1px 0 0;
+            animation: bounceBar 1s ease-in-out infinite;
+        }
+        
+        .cpu-bar:nth-child(1) { height: 30%; animation-delay: 0s; }
+        .cpu-bar:nth-child(2) { height: 60%; animation-delay: 0.1s; }
+        .cpu-bar:nth-child(3) { height: 45%; animation-delay: 0.2s; }
+        .cpu-bar:nth-child(4) { height: 80%; animation-delay: 0.3s; }
+        .cpu-bar:nth-child(5) { height: 35%; animation-delay: 0.4s; }
+        .cpu-bar:nth-child(6) { height: 70%; animation-delay: 0.5s; }
+        .cpu-bar:nth-child(7) { height: 50%; animation-delay: 0.6s; }
+        .cpu-bar:nth-child(8) { height: 90%; animation-delay: 0.7s; }
+        
+        .network-indicator {
+            display: inline-flex;
+            flex-direction: column;
+            gap: 1px;
+            margin-right: 5px;
+        }
+        
+        .network-arrow {
+            width: 0;
+            height: 0;
+            border-left: 3px solid transparent;
+            border-right: 3px solid transparent;
+        }
+        
+        .network-up {
+            border-bottom: 4px solid #00ff00;
+            animation: pulse 0.8s ease-in-out infinite;
+        }
+        
+        .network-down {
+            border-top: 4px solid #ff00ff;
+            animation: pulse 0.8s ease-in-out infinite reverse;
+        }
+        
+        /* Enhanced Chat Indicators */
+        .chat-typing {
+            display: flex;
+            gap: 3px;
+            padding: 8px 12px;
+            background: rgba(0, 255, 0, 0.1);
+            border-radius: 8px;
+            margin: 5px 0;
+        }
+        
+        .typing-dot {
+            width: 6px;
+            height: 6px;
+            background: #00ff00;
+            border-radius: 50%;
+            animation: bounceBar 1.4s ease-in-out infinite;
+        }
+        
+        .typing-dot:nth-child(2) { animation-delay: 0.2s; }
+        .typing-dot:nth-child(3) { animation-delay: 0.4s; }
+        
+        /* Terminal Improvements */
+        .terminal-header {
+            background: linear-gradient(135deg, #2d2d30 0%, #3c3c3c 100%);
+            border-bottom: 2px solid #00ff00;
+        }
+        
+        .terminal-prompt::before {
+            content: "⚡";
+            margin-right: 3px;
+            animation: colorCycle 2s linear infinite;
+        }
+        
+        /* File Explorer Enhancement */
+        .file-tree li:hover {
+            background: linear-gradient(90deg, #37373d, #4a4a4a);
+            border-left: 3px solid #00ff00;
+            transition: all 0.2s ease;
+        }
+        
+        /* Notification Enhancement */
+        .notification-badge {
+            position: absolute;
+            top: -5px;
+            right: -5px;
+            background: #ff0000;
+            color: white;
+            border-radius: 50%;
+            width: 16px;
+            height: 16px;
+            font-size: 10px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            animation: pulse 1s ease-in-out infinite;
+        }
+        
+        /* API Status Indicators */
+        .api-status {
+            float: right;
+            display: inline-flex;
+            align-items: center;
+            gap: 4px;
+            font-size: 12px;
+            font-weight: normal;
+        }
+        
+        .status-indicator {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            display: inline-block;
+        }
+        
+        .status-unknown {
+            background: #888;
+        }
+        
+        .status-valid {
+            background: #28a745;
+        }
+        
+        .status-invalid {
+            background: #dc3545;
+        }
+        
+        .status-testing {
+            background: #ffc107;
+        }
+        
+        .api-key-container {
+            display: flex;
+            gap: 8px;
+            align-items: center;
+        }
+        
+        .api-key-container input {
+            flex: 1;
+        }
+        
+        .btn-test {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 12px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+            min-width: 60px;
+        }
+        
+        .btn-test:hover {
+            background: #0058a3;
+        }
+        
+        .btn-test:disabled {
+            background: #666;
+            cursor: not-allowed;
+        }
+        
+        .status-text {
+            color: #d4d4d4;
+            font-size: 11px;
+        }
+        
+        /* Squad Manager Styles */
+        .squad-manager-overlay {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10000;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .squad-manager-overlay.show {
+            display: flex;
+        }
+        
+        .squad-manager-container {
+            background: #2d2d30;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 800px;
+            max-height: 90%;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .squad-manager-header {
+            background: #3c3c3c;
+            padding: 15px 20px;
+            border-bottom: 1px solid #5e5e5e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-shrink: 0;
+        }
+        
+        .squad-manager-title {
+            margin: 0;
+            color: #d4d4d4;
+            font-size: 18px;
+            font-weight: 600;
+        }
+        
+        .squad-manager-close {
+            background: none;
+            border: none;
+            color: #d4d4d4;
+            font-size: 24px;
+            cursor: pointer;
+            padding: 0;
+            width: 30px;
+            height: 30px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+        }
+        
+        .squad-manager-close:hover {
+            background: #5e5e5e;
+        }
+        
+        .squad-status-section {
+            padding: 20px;
+            border-bottom: 1px solid #3e3e42;
+        }
+        
+        .squad-status-info {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            margin-bottom: 15px;
+        }
+        
+        .squad-status-section .status-indicator {
+            font-size: 24px;
+            width: 40px;
+            height: 40px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 50%;
+            background: #3c3c3c;
+        }
+        
+        .squad-status-section .status-indicator.status-success {
+            background: #28a745;
+        }
+        
+        .squad-status-section .status-indicator.status-error {
+            background: #dc3545;
+        }
+        
+        .squad-status-section .status-text h3 {
+            margin: 0 0 5px 0;
+            color: #d4d4d4;
+            font-size: 16px;
+        }
+        
+        .squad-status-section .status-text p {
+            margin: 0;
+            color: #a0a0a0;
+            font-size: 14px;
+        }
+        
+        .squad-actions {
+            display: flex;
+            gap: 10px;
+        }
+        
+        .squad-btn {
+            background: #007acc;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            font-size: 14px;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        
+        .squad-btn:hover {
+            background: #005a9e;
+        }
+        
+        .squad-btn:disabled {
+            background: #5e5e5e;
+            cursor: not-allowed;
+        }
+        
+        .squad-btn-primary {
+            background: #28a745;
+        }
+        
+        .squad-btn-primary:hover {
+            background: #1e7e34;
+        }
+        
+        .squad-btn-secondary {
+            background: #6c757d;
+        }
+        
+        .squad-btn-secondary:hover {
+            background: #545b62;
+        }
+        
+        .squad-btn-danger {
+            background: #dc3545;
+        }
+        
+        .squad-btn-danger:hover {
+            background: #c82333;
+        }
+        
+        .squad-btn-small {
+            padding: 4px 8px;
+            font-size: 12px;
+        }
+        
+        .squad-sessions-section {
+            padding: 20px;
+            flex: 1;
+            overflow-y: auto;
+        }
+        
+        .section-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 20px;
+        }
+        
+        .section-header h3 {
+            margin: 0;
+            color: #d4d4d4;
+            font-size: 16px;
+        }
+        
+        .squad-sessions-list {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+        
+        .squad-session-card {
+            background: #3c3c3c;
+            border-radius: 6px;
+            padding: 15px;
+            border: 1px solid #5e5e5e;
+        }
+        
+        .session-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        .session-info {
+            display: flex;
+            flex-direction: column;
+            gap: 4px;
+        }
+        
+        .session-agent {
+            font-weight: 600;
+            color: #d4d4d4;
+            font-size: 14px;
+        }
+        
+        .session-id {
+            font-size: 12px;
+            color: #a0a0a0;
+            font-family: monospace;
+        }
+        
+        .session-status {
+            padding: 4px 8px;
+            border-radius: 4px;
+            font-size: 12px;
+            font-weight: 500;
+        }
+        
+        .session-status.status-active {
+            background: #28a745;
+            color: white;
+        }
+        
+        .session-status.status-paused {
+            background: #ffc107;
+            color: black;
+        }
+        
+        .session-status.status-error {
+            background: #dc3545;
+            color: white;
+        }
+        
+        .session-details {
+            margin-bottom: 15px;
+            display: flex;
+            flex-direction: column;
+            gap: 5px;
+        }
+        
+        .session-project,
+        .session-created {
+            font-size: 13px;
+            color: #a0a0a0;
+        }
+        
+        .session-actions {
+            display: flex;
+            gap: 8px;
+            flex-wrap: wrap;
+        }
+        
+        .empty-sessions {
+            text-align: center;
+            padding: 40px 20px;
+            color: #a0a0a0;
+        }
+        
+        .empty-sessions-icon {
+            font-size: 48px;
+            margin-bottom: 15px;
+        }
+        
+        .empty-sessions-title {
+            font-size: 18px;
+            font-weight: 600;
+            margin-bottom: 10px;
+            color: #d4d4d4;
+        }
+        
+        .empty-sessions-description {
+            margin-bottom: 20px;
+            line-height: 1.4;
+        }
+        
+        .squad-dialog {
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: rgba(0, 0, 0, 0.8);
+            z-index: 10001;
+            display: none;
+            align-items: center;
+            justify-content: center;
+        }
+        
+        .squad-dialog.show {
+            display: flex;
+        }
+        
+        .squad-dialog-content {
+            background: #2d2d30;
+            border-radius: 8px;
+            width: 90%;
+            max-width: 500px;
+            overflow: hidden;
+            box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
+        }
+        
+        .squad-dialog-header {
+            background: #3c3c3c;
+            padding: 15px 20px;
+            border-bottom: 1px solid #5e5e5e;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .squad-dialog-header h3 {
+            margin: 0;
+            color: #d4d4d4;
+            font-size: 16px;
+        }
+        
+        .squad-dialog-close {
+            background: none;
+            border: none;
+            color: #d4d4d4;
+            font-size: 20px;
+            cursor: pointer;
+            padding: 0;
+            width: 24px;
+            height: 24px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            border-radius: 3px;
+        }
+        
+        .squad-dialog-close:hover {
+            background: #5e5e5e;
+        }
+        
+        .squad-dialog-body {
+            padding: 20px;
+        }
+        
+        .form-group {
+            margin-bottom: 20px;
+        }
+        
+        .form-group:last-child {
+            margin-bottom: 0;
+        }
+        
+        .form-group label {
+            display: block;
+            margin-bottom: 8px;
+            color: #d4d4d4;
+            font-size: 14px;
+            font-weight: 500;
+        }
+        
+        .form-group input,
+        .form-group select {
+            width: 100%;
+            padding: 10px;
+            background: #3c3c3c;
+            border: 1px solid #5e5e5e;
+            border-radius: 4px;
+            color: #d4d4d4;
+            font-size: 14px;
+            box-sizing: border-box;
+        }
+        
+        .form-group input:focus,
+        .form-group select:focus {
+            outline: none;
+            border-color: #007acc;
+        }
+        
+        .form-group.checkbox {
+            display: flex;
+            align-items: center;
+            gap: 10px;
+        }
+        
+        .form-group.checkbox input {
+            width: auto;
+            margin: 0;
+        }
+        
+        .form-group.checkbox label {
+            margin: 0;
+            cursor: pointer;
+        }
+        
+        .squad-dialog-footer {
+            padding: 15px 20px;
+            border-top: 1px solid #5e5e5e;
+            display: flex;
+            justify-content: flex-end;
+            gap: 10px;
+        }
     </style>
 </head>
 <body>
@@ -1071,9 +1829,12 @@
         <div class="resize-handle resize-handle-vertical resize-sidebar" id="resizeSidebar"></div>
         <div class="resize-handle resize-handle-vertical resize-chat" id="resizeChat"></div>
         <div class="resize-handle resize-handle-horizontal resize-terminal" id="resizeTerminal"></div>
+        <div class="resize-handle resize-handle-vertical resize-tasks" id="resizeTasks"></div>
         
-        <!-- File Explorer Sidebar -->
-        <div class="sidebar">
+        <!-- Top Row: Sidebar, Editor, Chat -->
+        <div class="ide-top-row">
+            <!-- File Explorer Sidebar -->
+            <div class="sidebar">
             <div class="sidebar-header">
                 <div class="sidebar-tabs">
                     <span class="sidebar-tab active" data-tab="explorer">📁 Files</span>
@@ -1088,6 +1849,7 @@
                     <div style="display: flex; gap: 8px;">
                         <button class="btn-small btn-primary" onclick="showProjectWizard()">🚀 New</button>
                         <button class="btn-small btn-secondary" onclick="showProjectManager()">📁 Manage</button>
+                        <button class="btn-small btn-primary" onclick="showSquadManager()">🤖 Squad</button>
                     </div>
                 </div>
                 <ul class="file-tree" id="fileTree">
@@ -1147,16 +1909,49 @@
                 <div class="settings-sections">
                     <!-- API Configuration -->
                     <div class="settings-section">
-                        <h4>🔑 API Configuration</h4>
+                        <h4 onclick="toggleSettingsSection(this)">🔑 API Configuration</h4>
+                        <div class="settings-content">
                         <div class="setting-item">
-                            <label for="openaiKey">OpenAI API Key</label>
-                            <input type="password" id="openaiKey" placeholder="sk-..." />
+                            <label for="openaiKey">
+                                OpenAI API Key 
+                                <span class="api-status" id="openaiStatus">
+                                    <span class="status-indicator status-unknown">⚪</span>
+                                    <span class="status-text">Unknown</span>
+                                </span>
+                            </label>
+                            <div class="api-key-container">
+                                <input type="password" id="openaiKey" placeholder="sk-..." />
+                                <button type="button" class="btn-test" onclick="testAPIKey('openai')">Test</button>
+                            </div>
                             <small>Your OpenAI API key for GPT models</small>
                         </div>
                         <div class="setting-item">
-                            <label for="anthropicKey">Anthropic API Key</label>
-                            <input type="password" id="anthropicKey" placeholder="sk-ant-..." />
+                            <label for="anthropicKey">
+                                Anthropic API Key
+                                <span class="api-status" id="anthropicStatus">
+                                    <span class="status-indicator status-unknown">⚪</span>
+                                    <span class="status-text">Unknown</span>
+                                </span>
+                            </label>
+                            <div class="api-key-container">
+                                <input type="password" id="anthropicKey" placeholder="sk-ant-..." />
+                                <button type="button" class="btn-test" onclick="testAPIKey('anthropic')">Test</button>
+                            </div>
                             <small>Your Anthropic API key for Claude models</small>
+                        </div>
+                        <div class="setting-item">
+                            <label for="githubKey">
+                                GitHub API Key
+                                <span class="api-status" id="githubStatus">
+                                    <span class="status-indicator status-unknown">⚪</span>
+                                    <span class="status-text">Unknown</span>
+                                </span>
+                            </label>
+                            <div class="api-key-container">
+                                <input type="password" id="githubKey" placeholder="ghp_..." />
+                                <button type="button" class="btn-test" onclick="testAPIKey('github')">Test</button>
+                            </div>
+                            <small>Your GitHub Personal Access Token for repository management</small>
                         </div>
                         <div class="setting-item">
                             <label for="defaultModel">Default AI Model</label>
@@ -1167,11 +1962,21 @@
                                 <option value="claude-3-haiku">Claude 3 Haiku</option>
                             </select>
                         </div>
+                        <div class="setting-item">
+                            <button type="button" class="btn-secondary" onclick="checkAllAPIKeys()">
+                                🔍 Check All API Keys
+                            </button>
+                            <button type="button" class="btn-secondary" onclick="loadConfigFromBackend()">
+                                📥 Load Backend Config
+                            </button>
+                        </div>
+                        </div>
                     </div>
                     
                     <!-- Editor Settings -->
                     <div class="settings-section">
-                        <h4>📝 Editor</h4>
+                        <h4 onclick="toggleSettingsSection(this)">📝 Editor</h4>
+                        <div class="settings-content">
                         <div class="setting-item">
                             <label for="editorTheme">Theme</label>
                             <select id="editorTheme">
@@ -1197,11 +2002,13 @@
                             <input type="checkbox" id="minimap" checked />
                             <label for="minimap">Show Minimap</label>
                         </div>
+                        </div>
                     </div>
                     
                     <!-- Usage Limits -->
                     <div class="settings-section">
-                        <h4>💰 Usage Limits</h4>
+                        <h4 onclick="toggleSettingsSection(this)">💰 Usage Limits</h4>
+                        <div class="settings-content">
                         <div class="setting-item">
                             <label for="dailyLimit">Daily Spending Limit ($)</label>
                             <input type="number" id="dailyLimit" min="0" step="0.01" value="5.00" />
@@ -1214,11 +2021,13 @@
                             <input type="checkbox" id="lowBalanceAlerts" checked />
                             <label for="lowBalanceAlerts">Low Balance Alerts</label>
                         </div>
+                        </div>
                     </div>
                     
                     <!-- Terminal Settings -->
                     <div class="settings-section">
-                        <h4>🖥️ Terminal</h4>
+                        <h4 onclick="toggleSettingsSection(this)">🖥️ Terminal</h4>
+                        <div class="settings-content">
                         <div class="setting-item">
                             <label for="terminalFont">Font Family</label>
                             <select id="terminalFont">
@@ -1236,11 +2045,13 @@
                             <input type="checkbox" id="terminalSound" />
                             <label for="terminalSound">Sound Effects</label>
                         </div>
+                        </div>
                     </div>
                     
                     <!-- Auto-save & Backup -->
                     <div class="settings-section">
-                        <h4>💾 Auto-save & Backup</h4>
+                        <h4 onclick="toggleSettingsSection(this)">💾 Auto-save & Backup</h4>
+                        <div class="settings-content">
                         <div class="setting-item checkbox">
                             <input type="checkbox" id="autoSave" checked />
                             <label for="autoSave">Auto-save Files</label>
@@ -1252,6 +2063,45 @@
                         <div class="setting-item checkbox">
                             <input type="checkbox" id="sessionBackup" checked />
                             <label for="sessionBackup">Auto-backup Sessions</label>
+                        </div>
+                        </div>
+                    </div>
+                    
+                    <!-- GitHub Integration -->
+                    <div class="settings-section">
+                        <h4 onclick="toggleSettingsSection(this)">🐙 GitHub Integration</h4>
+                        <div class="settings-content">
+                        <div class="setting-item">
+                            <label for="githubOwner">Repository Owner</label>
+                            <input type="text" id="githubOwner" placeholder="username" value="meistro57" />
+                            <small>GitHub username or organization</small>
+                        </div>
+                        <div class="setting-item">
+                            <label for="githubRepo">Repository Name</label>
+                            <input type="text" id="githubRepo" placeholder="repository-name" value="Dumpster" />
+                            <small>Target repository for file operations</small>
+                        </div>
+                        <div class="setting-item">
+                            <label for="githubBranch">Branch</label>
+                            <input type="text" id="githubBranch" placeholder="main" value="main" />
+                            <small>Target branch for commits</small>
+                        </div>
+                        <div class="setting-item">
+                            <button type="button" class="btn-secondary" onclick="testGitHubConnection()">
+                                🔍 Test Connection
+                            </button>
+                            <button type="button" class="btn-secondary" onclick="listGitHubFiles()">
+                                📂 List Files
+                            </button>
+                            <button type="button" class="btn-primary" onclick="syncProjectToGitHub()">
+                                🔄 Sync Project
+                            </button>
+                        </div>
+                        <div class="setting-item">
+                            <div id="githubSyncStatus" style="margin-top: 10px; padding: 10px; background: #2d2d30; border-radius: 4px; display: none;">
+                                <div id="githubSyncMessage"></div>
+                            </div>
+                        </div>
                         </div>
                     </div>
                 </div>
@@ -1271,7 +2121,7 @@
                     <div class="editor-tab active" data-tab="welcome">
                         <span class="tab-icon">📝</span>
                         <span class="tab-title">Welcome</span>
-                        <span class="tab-close" onclick="closeTab('welcome')">&times;</span>
+                        <span class="tab-close">&times;</span>
                     </div>
                     <button class="tab-plus" onclick="newFile()" title="New File">+</button>
                 </div>
@@ -1316,43 +2166,47 @@
                        onkeypress="handleChatInput(event)">
             </div>
         </div>
+        </div>
         
-        <!-- Terminal -->
+        <!-- Bottom Row: Tasks and Terminal -->
+        <div class="ide-bottom-row">
+        
+        <!-- Tasks Container -->
+        <div class="tasks-container">
+            <div class="terminal-header">
+                <h4>Background Tasks</h4>
+                <button class="btn-small" onclick="refreshTasks()">Refresh</button>
+            </div>
+            <div class="task-queue" id="taskQueue">
+                <div class="task-list" id="taskList">
+                    <div class="task-item completed">
+                        <span class="task-icon">✓</span>
+                        <span class="task-name">Install dependencies</span>
+                        <span class="task-time">2 min ago</span>
+                    </div>
+                    <div class="task-item running">
+                        <span class="task-icon">⏳</span>
+                        <span class="task-name">Running tests</span>
+                        <span class="task-time">Running...</span>
+                    </div>
+                    <div class="task-item pending">
+                        <span class="task-icon">📋</span>
+                        <span class="task-name">Build project</span>
+                        <span class="task-time">Queued</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <!-- Terminal Container -->
         <div class="terminal-container">
             <div class="terminal-header">
                 <h4>Terminal</h4>
-                <div class="terminal-tabs">
-                    <span class="tab active">Tasks</span>
-                    <span class="tab">Terminal</span>
-                </div>
             </div>
             <div class="terminal-content">
                 <div class="terminal-output" id="terminalOutput">
                     Welcome to MeistroCraft IDE Terminal
                     $ 
-                </div>
-                <div class="task-queue" id="taskQueue" style="display: none;">
-                    <div class="task-header">
-                        <h5>Background Tasks</h5>
-                        <button class="btn-small" onclick="refreshTasks()">Refresh</button>
-                    </div>
-                    <div class="task-list" id="taskList">
-                        <div class="task-item completed">
-                            <span class="task-icon">✓</span>
-                            <span class="task-name">Install dependencies</span>
-                            <span class="task-time">2 min ago</span>
-                        </div>
-                        <div class="task-item running">
-                            <span class="task-icon">⏳</span>
-                            <span class="task-name">Running tests</span>
-                            <span class="task-time">Running...</span>
-                        </div>
-                        <div class="task-item pending">
-                            <span class="task-icon">📋</span>
-                            <span class="task-name">Build project</span>
-                            <span class="task-time">Queued</span>
-                        </div>
-                    </div>
                 </div>
             </div>
             <div class="terminal-input">
@@ -1361,29 +2215,69 @@
                        onkeypress="handleTerminalInput(event)">
             </div>
         </div>
+        </div>
     </div>
     
-    <!-- Status Bar -->
+    <!-- Enhanced Status Bar with Winamp-style indicators -->
     <div class="status-bar">
         <div class="status-item">
+            <div class="network-indicator">
+                <div class="network-arrow network-up"></div>
+                <div class="network-arrow network-down"></div>
+            </div>
             <span class="connection-status" id="connectionStatus"></span>
             <span id="connectionText">Connecting...</span>
         </div>
-        <div class="status-item">Session: <span id="sessionId">-</span></div>
+        
         <div class="status-item">
-            <span class="status-icon">🪙</span>
-            Tokens: <span id="tokenCount">0</span>
+            <span class="matrix-text">SID:</span> <span id="sessionId">-</span>
         </div>
-        <div class="status-item">
-            <span class="status-icon">💰</span>
-            Cost: $<span id="costAmount">0.00</span>
+        
+        <div class="status-item" onclick="window.ide?.showTokenModal()">
+            <span class="spinner">🪙</span>
+            <span class="matrix-text">TOK:</span> <span id="tokenCount">0</span>
         </div>
-        <div class="status-item">
-            <span class="status-icon">📊</span>
-            <span id="apiStatus">OpenAI: ✓ Anthropic: ✓</span>
+        
+        <div class="status-item" onclick="window.ide?.showTokenModal()">
+            <span class="matrix-text">$$:</span> <span id="costAmount">0.00</span>
+            <div class="winamp-progress">
+                <div class="winamp-progress-bar" id="costProgress" style="width: 15%"></div>
+            </div>
         </div>
+        
         <div class="status-item">
-            <span class="status-icon">⏱️</span>
+            <div class="cpu-usage">
+                <div class="cpu-bar"></div>
+                <div class="cpu-bar"></div>
+                <div class="cpu-bar"></div>
+                <div class="cpu-bar"></div>
+                <div class="cpu-bar"></div>
+                <div class="cpu-bar"></div>
+                <div class="cpu-bar"></div>
+                <div class="cpu-bar"></div>
+            </div>
+        </div>
+        
+        <div class="status-item" id="aiStatusIndicator" style="display: none;">
+            <div class="ai-processing">
+                <span class="spinner">🤖</span>
+                <span class="matrix-text">AI</span>
+                <div class="activity-indicator">
+                    <div class="activity-bar"></div>
+                    <div class="activity-bar"></div>
+                    <div class="activity-bar"></div>
+                    <div class="activity-bar"></div>
+                    <div class="activity-bar"></div>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-item animated">
+            <span id="apiStatus">GPT:✓ CLD:✓</span>
+        </div>
+        
+        <div class="status-item">
+            <span class="matrix-text">⏱</span>
             <span id="sessionTime">00:00</span>
         </div>
     </div>
@@ -1461,13 +2355,37 @@
     <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
     <script src="/static/js/project-wizard.js"></script>
     <script src="/static/js/project-manager.js"></script>
+    <script src="/static/js/squad-manager.js"></script>
+    <script src="/static/js/simple-resize.js"></script>
     <script src="/static/js/ide.js"></script>
     <script>
         function showProjectWizard() {
-            if (!window.projectWizard) {
-                window.projectWizard = new ProjectWizard(window.ide);
+            console.log('showProjectWizard called');
+            try {
+                if (!window.ide) {
+                    console.error('IDE not initialized yet');
+                    alert('Please wait for the IDE to finish loading');
+                    return;
+                }
+                console.log('IDE found, creating wizard...');
+                
+                if (!window.ProjectWizard) {
+                    console.error('ProjectWizard class not found');
+                    alert('ProjectWizard class not loaded. Please refresh the page.');
+                    return;
+                }
+                
+                if (!window.projectWizard) {
+                    console.log('Creating new ProjectWizard instance');
+                    window.projectWizard = new ProjectWizard(window.ide);
+                }
+                console.log('Showing wizard...');
+                window.projectWizard.show();
+                console.log('Wizard show() called');
+            } catch (error) {
+                console.error('Error showing project wizard:', error);
+                alert('Error opening project wizard: ' + error.message);
             }
-            window.projectWizard.show();
         }
         
         function showProjectManager() {
@@ -1475,6 +2393,138 @@
                 window.projectManager = new ProjectManager(window.ide);
             }
             window.projectManager.show();
+        }
+        
+        function toggleSettingsSection(header) {
+            const section = header.parentElement;
+            section.classList.toggle('collapsed');
+        }
+        
+        async function testGitHubConnection() {
+            const owner = document.getElementById('githubOwner').value;
+            const repo = document.getElementById('githubRepo').value;
+            
+            if (!owner || !repo) {
+                showGitHubStatus('error', 'Please enter repository owner and name');
+                return;
+            }
+            
+            try {
+                showGitHubStatus('info', 'Testing connection...');
+                const response = await fetch(`/api/github/repository/${owner}/${repo}/contents`);
+                
+                if (response.ok) {
+                    const data = await response.json();
+                    showGitHubStatus('success', `Connected to ${owner}/${repo} - Found ${data.length} items`);
+                } else {
+                    const error = await response.json();
+                    showGitHubStatus('error', `Connection failed: ${error.detail}`);
+                }
+            } catch (error) {
+                showGitHubStatus('error', `Connection error: ${error.message}`);
+            }
+        }
+        
+        async function listGitHubFiles() {
+            const owner = document.getElementById('githubOwner').value;
+            const repo = document.getElementById('githubRepo').value;
+            
+            if (!owner || !repo) {
+                showGitHubStatus('error', 'Please enter repository owner and name');
+                return;
+            }
+            
+            try {
+                showGitHubStatus('info', 'Loading repository files...');
+                const response = await fetch(`/api/github/repository/${owner}/${repo}/contents`);
+                
+                if (response.ok) {
+                    const files = await response.json();
+                    const fileList = files.map(f => `${f.type === 'dir' ? '📁' : '📄'} ${f.name}`).join('\\n');
+                    showGitHubStatus('success', `Repository contents:\\n${fileList}`);
+                } else {
+                    const error = await response.json();
+                    showGitHubStatus('error', `Failed to list files: ${error.detail}`);
+                }
+            } catch (error) {
+                showGitHubStatus('error', `Error listing files: ${error.message}`);
+            }
+        }
+        
+        async function syncProjectToGitHub() {
+            const owner = document.getElementById('githubOwner').value;
+            const repo = document.getElementById('githubRepo').value;
+            const branch = document.getElementById('githubBranch').value || 'main';
+            
+            if (!owner || !repo) {
+                showGitHubStatus('error', 'Please enter repository owner and name');
+                return;
+            }
+            
+            // For testing, we'll use a simple project path
+            const projectPath = 'test-project';
+            
+            try {
+                showGitHubStatus('info', 'Syncing project to GitHub...');
+                
+                const response = await fetch('/api/github/sync-project', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify({
+                        owner: owner,
+                        repo: repo,
+                        project_path: projectPath,
+                        branch: branch
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    const message = `Sync completed!\\n✅ ${result.total_synced} files synced\\n❌ ${result.total_failed} files failed`;
+                    showGitHubStatus('success', message);
+                } else {
+                    const error = await response.json();
+                    showGitHubStatus('error', `Sync failed: ${error.detail}`);
+                }
+            } catch (error) {
+                showGitHubStatus('error', `Sync error: ${error.message}`);
+            }
+        }
+        
+        function showGitHubStatus(type, message) {
+            const statusDiv = document.getElementById('githubSyncStatus');
+            const messageDiv = document.getElementById('githubSyncMessage');
+            
+            statusDiv.style.display = 'block';
+            messageDiv.textContent = message;
+            
+            // Set colors based on type
+            switch (type) {
+                case 'success':
+                    statusDiv.style.background = '#1e3a1e';
+                    statusDiv.style.border = '1px solid #28a745';
+                    statusDiv.style.color = '#28a745';
+                    break;
+                case 'error':
+                    statusDiv.style.background = '#3a1e1e';
+                    statusDiv.style.border = '1px solid #dc3545';
+                    statusDiv.style.color = '#dc3545';
+                    break;
+                case 'info':
+                    statusDiv.style.background = '#1e2a3a';
+                    statusDiv.style.border = '1px solid #007acc';
+                    statusDiv.style.color = '#007acc';
+                    break;
+            }
+            
+            // Auto-hide after 10 seconds for success/info messages
+            if (type !== 'error') {
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 10000);
+            }
         }
     </script>
 </body>

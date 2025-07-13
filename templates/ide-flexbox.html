@@ -1,0 +1,471 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>MeistroCraft IDE</title>
+    <link rel="stylesheet" href="/static/css/wizard.css">
+    <link rel="stylesheet" href="/static/css/project-manager.css">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background: #1e1e1e;
+            color: #d4d4d4;
+            height: 100vh;
+            overflow: hidden;
+        }
+        
+        /* Main Layout - Flexbox */
+        .ide-container {
+            display: flex;
+            flex-direction: column;
+            height: calc(100vh - 25px);
+            position: relative;
+        }
+        
+        .ide-top-row {
+            display: flex;
+            flex: 1;
+            min-height: 0;
+        }
+        
+        .ide-bottom-row {
+            display: flex;
+            height: 200px;
+            border-top: 1px solid #3e3e42;
+        }
+        
+        /* Sidebar */
+        .sidebar {
+            width: 300px;
+            background: #252526;
+            border-right: 1px solid #3e3e42;
+            padding: 10px;
+            flex-shrink: 0;
+            overflow-y: auto;
+        }
+        
+        /* Editor */
+        .editor-container {
+            flex: 1;
+            background: #1e1e1e;
+            position: relative;
+            display: flex;
+            flex-direction: column;
+            min-width: 0;
+        }
+        
+        .editor-tabs {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            background: #2d2d30;
+            border-bottom: 1px solid #3e3e42;
+            padding: 0 10px;
+            height: 35px;
+            flex-shrink: 0;
+        }
+        
+        .editor-content {
+            flex: 1;
+            position: relative;
+            overflow: hidden;
+        }
+        
+        #editor {
+            width: 100%;
+            height: 100%;
+        }
+        
+        /* Chat */
+        .chat-container {
+            width: 300px;
+            background: #2d2d30;
+            border-left: 1px solid #3e3e42;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        
+        .chat-messages {
+            flex: 1;
+            padding: 10px;
+            overflow-y: auto;
+        }
+        
+        .chat-input {
+            padding: 10px;
+            border-top: 1px solid #3e3e42;
+        }
+        
+        .chat-input input {
+            width: 100%;
+            padding: 8px 12px;
+            border: 1px solid #555;
+            border-radius: 4px;
+            background: #3c3c3c;
+            color: #fff;
+            font-size: 14px;
+        }
+        
+        /* Tasks */
+        .tasks-container {
+            width: 300px;
+            background: #1e1e1e;
+            border-right: 1px solid #3e3e42;
+            overflow: hidden;
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+        
+        /* Terminal */
+        .terminal-container {
+            flex: 1;
+            background: #0c0c0c;
+            padding: 10px;
+            overflow-y: auto;
+            font-family: 'Consolas', 'Monaco', monospace;
+            min-width: 0;
+        }
+        
+        /* Header Styles */
+        .terminal-header {
+            background: #2d2d30;
+            padding: 8px 15px;
+            border-bottom: 1px solid #3e3e42;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        
+        /* Resize Handles */
+        .resize-handle {
+            position: absolute;
+            background: transparent;
+            z-index: 1000;
+            transition: background 0.2s;
+        }
+        
+        .resize-handle:hover {
+            background: rgba(14, 99, 156, 0.3);
+        }
+        
+        .resize-sidebar {
+            left: 296px;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            top: 0;
+        }
+        
+        .resize-chat {
+            right: 296px;
+            width: 8px;
+            height: 100%;
+            cursor: col-resize;
+            top: 0;
+        }
+        
+        .resize-terminal {
+            bottom: 196px;
+            left: 0;
+            right: 0;
+            height: 8px;
+            cursor: row-resize;
+        }
+        
+        .resize-tasks {
+            bottom: 0;
+            left: 296px;
+            width: 8px;
+            height: 200px;
+            cursor: col-resize;
+        }
+        
+        /* Status Bar */
+        .status-bar {
+            height: 25px;
+            background: #007acc;
+            color: white;
+            display: flex;
+            align-items: center;
+            padding: 0 10px;
+            font-size: 12px;
+            justify-content: space-between;
+        }
+        
+        /* Basic Styles */
+        .message {
+            margin-bottom: 10px;
+            padding: 8px;
+            border-radius: 4px;
+        }
+        
+        .message.user {
+            background: #2d2d30;
+            text-align: right;
+        }
+        
+        .message.ai {
+            background: #1e3a8a;
+        }
+        
+        .task-item {
+            padding: 8px;
+            border-bottom: 1px solid #333;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+        
+        .btn-small {
+            background: #0e63ac;
+            color: white;
+            border: none;
+            padding: 4px 8px;
+            border-radius: 3px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        /* Tab Styles */
+        .tab-list {
+            display: flex;
+            align-items: center;
+        }
+        
+        .editor-tab {
+            background: #2d2d30;
+            border: 1px solid #3e3e42;
+            border-bottom: none;
+            padding: 8px 12px;
+            cursor: pointer;
+            display: flex;
+            align-items: center;
+            gap: 5px;
+        }
+        
+        .editor-tab.active {
+            background: #1e1e1e;
+            border-bottom: 1px solid #1e1e1e;
+        }
+        
+        .tab-plus {
+            background: none;
+            border: none;
+            color: #888;
+            padding: 8px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+    </style>
+</head>
+<body>
+    <div class="ide-container">
+        <!-- Resize Handles -->
+        <div class="resize-handle resize-sidebar" id="resizeSidebar"></div>
+        <div class="resize-handle resize-chat" id="resizeChat"></div>
+        <div class="resize-handle resize-terminal" id="resizeTerminal"></div>
+        <div class="resize-handle resize-tasks" id="resizeTasks"></div>
+        
+        <!-- Top Row: Sidebar | Editor | Chat -->
+        <div class="ide-top-row">
+            <!-- Sidebar -->
+            <div class="sidebar">
+                <h3>📁 Files</h3>
+                <div id="fileExplorer">
+                    <div>📄 welcome.md</div>
+                    <div>📄 main.py</div>
+                    <div>📁 src/</div>
+                    <div>📁 tests/</div>
+                </div>
+            </div>
+            
+            <!-- Editor -->
+            <div class="editor-container">
+                <div class="editor-tabs">
+                    <div class="tab-list">
+                        <div class="editor-tab active">
+                            <span>📝</span>
+                            <span>Welcome</span>
+                            <span>&times;</span>
+                        </div>
+                        <button class="tab-plus">+</button>
+                    </div>
+                </div>
+                <div class="editor-content">
+                    <div id="editor"></div>
+                </div>
+            </div>
+            
+            <!-- Chat -->
+            <div class="chat-container">
+                <div class="chat-messages" id="chatMessages">
+                    <div class="message ai">
+                        <strong>MeistroCraft AI:</strong> Welcome to the IDE! How can I help you code today?
+                    </div>
+                </div>
+                <div class="chat-input">
+                    <input type="text" placeholder="Ask me anything about your code..." id="chatInput">
+                </div>
+            </div>
+        </div>
+        
+        <!-- Bottom Row: Tasks | Terminal -->
+        <div class="ide-bottom-row">
+            <!-- Tasks -->
+            <div class="tasks-container">
+                <div class="terminal-header">
+                    <h4>Background Tasks</h4>
+                    <button class="btn-small">Refresh</button>
+                </div>
+                <div class="task-list">
+                    <div class="task-item">
+                        <span>✓ Install dependencies</span>
+                        <span>2 min ago</span>
+                    </div>
+                    <div class="task-item">
+                        <span>⏳ Running tests</span>
+                        <span>Running...</span>
+                    </div>
+                    <div class="task-item">
+                        <span>📋 Build project</span>
+                        <span>Queued</span>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- Terminal -->
+            <div class="terminal-container">
+                <div class="terminal-header">
+                    <h4>Terminal</h4>
+                </div>
+                <div id="terminal">
+                    <div style="color: #00ff00;">Welcome to MeistroCraft IDE Terminal</div>
+                    <div>$</div>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <!-- Status Bar -->
+    <div class="status-bar">
+        <span>Connected</span>
+        <span>Line 1, Column 1</span>
+        <span>Tokens: 0</span>
+    </div>
+    
+    <!-- Monaco Editor -->
+    <script src="https://unpkg.com/monaco-editor@0.44.0/min/vs/loader.js"></script>
+    <script>
+        // Simple resize implementation
+        function initializeFlexboxResize() {
+            const sidebar = document.querySelector('.sidebar');
+            const chat = document.querySelector('.chat-container');
+            const tasks = document.querySelector('.tasks-container');
+            const bottomRow = document.querySelector('.ide-bottom-row');
+            
+            const sidebarHandle = document.getElementById('resizeSidebar');
+            const chatHandle = document.getElementById('resizeChat');
+            const terminalHandle = document.getElementById('resizeTerminal');
+            const tasksHandle = document.getElementById('resizeTasks');
+            
+            let isResizing = false;
+            let currentHandle = null;
+            let startPos = 0;
+            
+            // Sidebar resize
+            sidebarHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                currentHandle = 'sidebar';
+                startPos = e.clientX;
+                e.preventDefault();
+            });
+            
+            // Chat resize
+            chatHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                currentHandle = 'chat';
+                startPos = e.clientX;
+                e.preventDefault();
+            });
+            
+            // Terminal resize
+            terminalHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                currentHandle = 'terminal';
+                startPos = e.clientY;
+                e.preventDefault();
+            });
+            
+            // Tasks resize
+            tasksHandle.addEventListener('mousedown', (e) => {
+                isResizing = true;
+                currentHandle = 'tasks';
+                startPos = e.clientX;
+                e.preventDefault();
+            });
+            
+            // Mouse move
+            document.addEventListener('mousemove', (e) => {
+                if (!isResizing) return;
+                
+                if (currentHandle === 'sidebar') {
+                    const delta = e.clientX - startPos;
+                    const newWidth = Math.max(200, Math.min(600, 300 + delta));
+                    sidebar.style.width = newWidth + 'px';
+                    sidebarHandle.style.left = (newWidth - 4) + 'px';
+                    tasksHandle.style.left = (newWidth - 4) + 'px';
+                } else if (currentHandle === 'chat') {
+                    const delta = startPos - e.clientX;
+                    const newWidth = Math.max(200, Math.min(600, 300 + delta));
+                    chat.style.width = newWidth + 'px';
+                    chatHandle.style.right = (newWidth - 4) + 'px';
+                } else if (currentHandle === 'terminal') {
+                    const delta = startPos - e.clientY;
+                    const newHeight = Math.max(100, Math.min(400, 200 + delta));
+                    bottomRow.style.height = newHeight + 'px';
+                    terminalHandle.style.bottom = (newHeight - 4) + 'px';
+                } else if (currentHandle === 'tasks') {
+                    const delta = e.clientX - startPos;
+                    const newWidth = Math.max(200, Math.min(400, 300 + delta));
+                    tasks.style.width = newWidth + 'px';
+                }
+                
+                // Trigger Monaco resize
+                if (window.editor) {
+                    setTimeout(() => window.editor.layout(), 10);
+                }
+            });
+            
+            // Mouse up
+            document.addEventListener('mouseup', () => {
+                isResizing = false;
+                currentHandle = null;
+            });
+        }
+        
+        // Initialize Monaco Editor
+        require.config({ paths: { vs: 'https://unpkg.com/monaco-editor@0.44.0/min/vs' } });
+        require(['vs/editor/editor.main'], function () {
+            window.editor = monaco.editor.create(document.getElementById('editor'), {
+                value: '# Welcome to MeistroCraft IDE\n\nThis is a clean flexbox layout that should work much better!\n\n## Features:\n- Resizable panels\n- Clean code structure\n- No complex grid layouts\n\nTry resizing the panels!',
+                language: 'markdown',
+                theme: 'vs-dark',
+                automaticLayout: true
+            });
+            
+            // Initialize resize after editor is ready
+            initializeFlexboxResize();
+        });
+    </script>
+</body>
+</html>

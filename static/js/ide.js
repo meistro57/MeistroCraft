@@ -44,8 +44,21 @@ class MeistroCraftIDE {
         // Make IDE globally accessible for project wizard and manager
         window.ide = this;
         
+        // Add debugging function
+        window.debugTabs = () => {
+            console.log('Open tabs:', Array.from(this.openTabs.keys()));
+            console.log('Active tab:', this.activeTab);
+            console.log('Tab elements:', document.querySelectorAll('.editor-tab[data-tab]'));
+        };
+        
         // Initialize notification system
         this.initNotificationSystem();
+        
+        // Start Winamp-style UI animations
+        this.startUIAnimations();
+        
+        // Load API configuration status
+        this.loadAPIConfig();
     }
     
     async initEditor() {
@@ -79,8 +92,8 @@ if __name__ == "__main__":
                 this.handleCodeChange();
             });
             
-            // Initialize welcome tab
-            this.createTab('welcome', 'Welcome', '📝', `# Welcome to MeistroCraft IDE
+            // Initialize welcome tab (register existing HTML tab)
+            const welcomeContent = `# Welcome to MeistroCraft IDE
 ## Getting Started
 
 Welcome to the MeistroCraft IDE! This is a powerful browser-based development environment with AI assistance.
@@ -104,7 +117,28 @@ Start by typing a request in the chat like:
 - "Write a React component"
 
 Happy coding! 🚀
-`, false);
+`;
+            
+            // Register the existing welcome tab instead of creating a new one
+            this.openTabs.set('welcome', {
+                id: 'welcome',
+                title: 'Welcome',
+                icon: '📝',
+                content: welcomeContent,
+                isFile: false,
+                filePath: null,
+                modified: false,
+                language: 'markdown'
+            });
+            
+            // Set welcome as active tab
+            this.activeTab = 'welcome';
+            
+            // Update editor with welcome content
+            if (this.editor) {
+                this.editor.setValue(welcomeContent);
+                monaco.editor.setModelLanguage(this.editor.getModel(), 'markdown');
+            }
             
             console.log('Monaco Editor initialized');
         });
@@ -175,6 +209,10 @@ Happy coding! 🚀
                 break;
                 
             case 'chat_response_start':
+                // Show AI processing indicator
+                this.showAIProcessing(true);
+                this.showChatTyping(true);
+                
                 // Start new AI response
                 this.currentAIMessage = document.createElement('div');
                 this.currentAIMessage.className = 'message ai';
@@ -199,6 +237,10 @@ Happy coding! 🚀
                 break;
                 
             case 'chat_response_complete':
+                // Hide AI processing indicators
+                this.showAIProcessing(false);
+                this.showChatTyping(false);
+                
                 // Finalize AI response
                 this.currentAIMessage = null;
                 this.currentAIResponseContent = null;
@@ -208,6 +250,13 @@ Happy coding! 🚀
                     this.requestCount++;
                     this.sessionTokens += message.total_tokens;
                     this.sessionCost += message.cost;
+                    
+                    // Update progress bar
+                    this.updateCostProgress();
+                    
+                    // Show notification
+                    // Token usage info logged silently
+                    console.log(`Tokens used: ${message.total_tokens} (Cost: $${message.cost?.toFixed(4) || '0.0000'})`);
                 }
                 break;
                 
@@ -277,6 +326,9 @@ Happy coding! 🚀
         
         // Setup tab event listeners
         this.setupTabListeners();
+        
+        // Setup existing welcome tab functionality
+        this.setupExistingTabs();
     }
     
     // Tab Management Methods
@@ -302,14 +354,21 @@ Happy coding! 🚀
         tabElement.innerHTML = `
             <span class="tab-icon">${icon}</span>
             <span class="tab-title">${title}</span>
-            <span class="tab-close" onclick="closeTab('${id}')">&times;</span>
+            <span class="tab-close">&times;</span>
         `;
         
-        // Add click handler
+        // Add click handler for the tab (but not close button)
         tabElement.addEventListener('click', (e) => {
             if (!e.target.classList.contains('tab-close')) {
                 this.switchTab(id);
             }
+        });
+        
+        // Add specific click handler for close button
+        const closeButton = tabElement.querySelector('.tab-close');
+        closeButton.addEventListener('click', (e) => {
+            e.stopPropagation(); // Prevent tab switch
+            this.closeTab(id);
         });
         
         // Add to tab list
@@ -323,21 +382,36 @@ Happy coding! 🚀
     }
     
     switchTab(tabId) {
-        if (!this.openTabs.has(tabId)) return;
+        console.log(`Switching to tab: ${tabId}`, this.openTabs.has(tabId));
+        
+        if (!this.openTabs.has(tabId)) {
+            console.warn(`Tab ${tabId} not found in openTabs:`, Array.from(this.openTabs.keys()));
+            return;
+        }
         
         // Update UI
         document.querySelectorAll('.editor-tab').forEach(tab => {
             tab.classList.remove('active');
         });
-        document.querySelector(`[data-tab="${tabId}"]`).classList.add('active');
+        
+        const targetTab = document.querySelector(`[data-tab="${tabId}"]`);
+        if (targetTab) {
+            targetTab.classList.add('active');
+            console.log(`Tab UI updated for: ${tabId}`);
+        } else {
+            console.warn(`Tab element not found for: ${tabId}`);
+        }
         
         // Update editor content
         const tab = this.openTabs.get(tabId);
         this.activeTab = tabId;
         
-        if (this.editor) {
-            this.editor.setValue(tab.content);
-            monaco.editor.setModelLanguage(this.editor.getModel(), tab.language);
+        if (this.editor && tab) {
+            this.editor.setValue(tab.content || '');
+            monaco.editor.setModelLanguage(this.editor.getModel(), tab.language || 'plaintext');
+            console.log(`Editor updated with content for: ${tabId}`);
+        } else {
+            console.warn(`Editor or tab content not available for: ${tabId}`);
         }
         
         // Update preview if enabled
@@ -347,10 +421,20 @@ Happy coding! 🚀
     }
     
     closeTab(tabId) {
-        if (this.openTabs.size <= 1) return; // Keep at least one tab
+        console.log(`Closing tab: ${tabId}`);
+        
+        if (this.openTabs.size <= 1) {
+            console.log('Cannot close last tab');
+            return; // Keep at least one tab
+        }
         
         const tab = this.openTabs.get(tabId);
-        if (tab && tab.modified) {
+        if (!tab) {
+            console.warn(`Tab ${tabId} not found for closing`);
+            return;
+        }
+        
+        if (tab.modified) {
             if (!confirm(`"${tab.title}" has unsaved changes. Close anyway?`)) {
                 return;
             }
@@ -358,16 +442,19 @@ Happy coding! 🚀
         
         // Remove from tabs
         this.openTabs.delete(tabId);
+        console.log(`Removed tab ${tabId} from openTabs`);
         
         // Remove tab element
         const tabElement = document.querySelector(`[data-tab="${tabId}"]`);
         if (tabElement) {
             tabElement.remove();
+            console.log(`Removed tab element for ${tabId}`);
         }
         
         // Switch to another tab if this was active
         if (this.activeTab === tabId) {
             const remainingTabs = Array.from(this.openTabs.keys());
+            console.log(`Remaining tabs:`, remainingTabs);
             if (remainingTabs.length > 0) {
                 this.switchTab(remainingTabs[0]);
             }
@@ -427,18 +514,199 @@ Happy coding! 🚀
     }
     
     togglePreview() {
-        this.previewMode = !this.previewMode;
-        const previewPane = document.getElementById('previewPane');
-        const previewToggle = document.getElementById('previewToggle');
-        
-        if (this.previewMode) {
-            previewPane.style.display = 'flex';
-            previewToggle.classList.add('active');
-            this.updatePreview();
-        } else {
-            previewPane.style.display = 'none';
-            previewToggle.classList.remove('active');
+        // Open preview in new popup window instead of inline
+        this.openPreviewWindow();
+    }
+    
+    openPreviewWindow() {
+        if (!this.activeTab) {
+            alert('No file is currently open to preview');
+            return;
         }
+        
+        const tab = this.openTabs.get(this.activeTab);
+        if (!tab) return;
+        
+        const content = tab.content;
+        const fileName = tab.title;
+        const filePath = tab.filePath || '';
+        
+        // Detect preview type
+        const previewType = this.detectPreviewType(filePath, content);
+        
+        // Generate preview content
+        let previewHTML = '';
+        switch (previewType) {
+            case 'markdown':
+                previewHTML = this.renderMarkdown(content);
+                break;
+            case 'html':
+                previewHTML = content;
+                break;
+            case 'text':
+            default:
+                previewHTML = `<pre style="white-space: pre-wrap; font-family: 'Consolas', monospace; margin: 0;">${this.escapeHtml(content)}</pre>`;
+                break;
+        }
+        
+        // Create popup window with scrolling capability
+        const previewWindow = window.open('', '_blank', 'width=800,height=600,scrollbars=yes,resizable=yes,location=no,menubar=no,toolbar=no');
+        
+        if (!previewWindow) {
+            alert('Please allow popups for this site to open the preview window');
+            return;
+        }
+        
+        // Write the complete HTML document to the popup
+        previewWindow.document.write(`
+            <!DOCTYPE html>
+            <html lang="en">
+            <head>
+                <meta charset="UTF-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <title>Preview: ${fileName}</title>
+                <style>
+                    body {
+                        font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        background: #1e1e1e;
+                        color: #d4d4d4;
+                        margin: 0;
+                        padding: 20px;
+                        line-height: 1.6;
+                        overflow-x: auto;
+                        overflow-y: auto;
+                    }
+                    
+                    h1, h2, h3, h4, h5, h6 {
+                        color: #ffffff;
+                        margin-top: 1.5em;
+                        margin-bottom: 0.5em;
+                    }
+                    
+                    h1 { border-bottom: 2px solid #007acc; padding-bottom: 0.3em; }
+                    h2 { border-bottom: 1px solid #3e3e42; padding-bottom: 0.3em; }
+                    
+                    code {
+                        background: #2d2d30;
+                        padding: 2px 6px;
+                        border-radius: 3px;
+                        font-family: 'Consolas', 'Monaco', monospace;
+                        color: #ce9178;
+                    }
+                    
+                    pre {
+                        background: #2d2d30;
+                        padding: 16px;
+                        border-radius: 6px;
+                        overflow-x: auto;
+                        border: 1px solid #3e3e42;
+                        font-family: 'Consolas', 'Monaco', monospace;
+                    }
+                    
+                    pre code {
+                        background: none;
+                        padding: 0;
+                    }
+                    
+                    blockquote {
+                        border-left: 4px solid #007acc;
+                        margin: 0;
+                        padding-left: 16px;
+                        color: #a6a6a6;
+                    }
+                    
+                    table {
+                        border-collapse: collapse;
+                        width: 100%;
+                        margin: 1em 0;
+                    }
+                    
+                    th, td {
+                        border: 1px solid #3e3e42;
+                        padding: 8px 12px;
+                        text-align: left;
+                    }
+                    
+                    th {
+                        background: #2d2d30;
+                        font-weight: bold;
+                    }
+                    
+                    a {
+                        color: #007acc;
+                        text-decoration: none;
+                    }
+                    
+                    a:hover {
+                        text-decoration: underline;
+                    }
+                    
+                    .preview-header {
+                        position: sticky;
+                        top: 0;
+                        background: #2d2d30;
+                        padding: 10px 20px;
+                        margin: -20px -20px 20px -20px;
+                        border-bottom: 1px solid #3e3e42;
+                        font-weight: bold;
+                        color: #ffffff;
+                        z-index: 1000;
+                    }
+                    
+                    .preview-content {
+                        max-width: none;
+                        word-wrap: break-word;
+                        overflow-wrap: break-word;
+                    }
+                    
+                    /* Scrollbar styling for webkit browsers */
+                    ::-webkit-scrollbar {
+                        width: 12px;
+                        height: 12px;
+                    }
+                    
+                    ::-webkit-scrollbar-track {
+                        background: #2d2d30;
+                    }
+                    
+                    ::-webkit-scrollbar-thumb {
+                        background: #007acc;
+                        border-radius: 6px;
+                    }
+                    
+                    ::-webkit-scrollbar-thumb:hover {
+                        background: #0086d3;
+                    }
+                </style>
+            </head>
+            <body>
+                <div class="preview-header">
+                    📄 ${fileName} - Live Preview
+                </div>
+                <div class="preview-content">
+                    ${previewHTML}
+                </div>
+                
+                <script>
+                    // Auto-refresh functionality (optional)
+                    let lastContent = ${JSON.stringify(content)};
+                    
+                    // Focus the window
+                    window.focus();
+                    
+                    // Handle window close
+                    window.addEventListener('beforeunload', function() {
+                        // Cleanup if needed
+                    });
+                </script>
+            </body>
+            </html>
+        `);
+        
+        previewWindow.document.close();
+        
+        // Store reference for potential updates
+        this.previewWindow = previewWindow;
     }
     
     updatePreview() {
@@ -586,6 +854,30 @@ Happy coding! 🚀
         }
     }
     
+    setupExistingTabs() {
+        // Setup event listeners for existing tabs in HTML
+        const existingTabs = document.querySelectorAll('.editor-tab[data-tab]');
+        existingTabs.forEach(tabElement => {
+            const tabId = tabElement.getAttribute('data-tab');
+            
+            // Add click handler for tab switching
+            tabElement.addEventListener('click', (e) => {
+                if (!e.target.classList.contains('tab-close')) {
+                    this.switchTab(tabId);
+                }
+            });
+            
+            // Add click handler for close button
+            const closeButton = tabElement.querySelector('.tab-close');
+            if (closeButton) {
+                closeButton.addEventListener('click', (e) => {
+                    e.stopPropagation(); // Prevent tab switch
+                    this.closeTab(tabId);
+                });
+            }
+        });
+    }
+    
     handleCodeChange() {
         // Debounce auto-save
         clearTimeout(this.saveTimeout);
@@ -702,7 +994,14 @@ Happy coding! 🚀
                     };
                     const language = languageMap[extension] || 'plaintext';
                     monaco.editor.setModelLanguage(this.editor.getModel(), language);
+                    
+                    // Show file activity
+                    this.addFileActivity(path, 'opened');
                 }
+            } else if (operation === 'write' || operation === 'create') {
+                // Show file creation/modification activity
+                this.addFileActivity(path, operation === 'create' ? 'created' : 'modified');
+                this.showNotification('success', `File ${operation === 'create' ? 'created' : 'modified'}: ${path}`);
             } else if (operation === 'list') {
                 // Update file tree
                 this.updateFileTree(data, path);
@@ -972,6 +1271,9 @@ Happy coding! 🚀
             document.getElementById('explorerTab').style.display = 'none';
             document.getElementById('sessionsTab').style.display = 'none';
             document.getElementById('settingsTab').style.display = 'block';
+            
+            // Check API status when settings tab is opened
+            this.checkInitialAPIStatus();
         }
     }
     
@@ -1344,8 +1646,8 @@ Happy coding! 🚀
     }
     
     showNotification(type, message, duration = 5000) {
-        const container = document.getElementById('notificationContainer');
-        if (!container) return;
+        // Notifications disabled - generic popups removed
+        return;
         
         const notification = document.createElement('div');
         notification.style.cssText = `
@@ -1458,6 +1760,340 @@ Happy coding! 🚀
             this.showNotification('error', 'Failed to load project files');
         }
     }
+    
+    // Winamp-style UI Enhancement Methods
+    showAIProcessing(show) {
+        const indicator = document.getElementById('aiStatusIndicator');
+        if (indicator) {
+            indicator.style.display = show ? 'block' : 'none';
+        }
+    }
+    
+    showChatTyping(show) {
+        // Remove existing typing indicator
+        const existing = document.querySelector('.chat-typing');
+        if (existing) {
+            existing.remove();
+        }
+        
+        if (show) {
+            const chatMessages = document.getElementById('chatMessages');
+            const typingDiv = document.createElement('div');
+            typingDiv.className = 'chat-typing';
+            typingDiv.innerHTML = `
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <div class="typing-dot"></div>
+                <span style="margin-left: 8px; color: #00ff00;">AI is thinking...</span>
+            `;
+            chatMessages.appendChild(typingDiv);
+            
+            // Auto-scroll
+            setTimeout(() => {
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }, 10);
+        }
+    }
+    
+    updateCostProgress() {
+        const progressBar = document.getElementById('costProgress');
+        const dailyLimit = this.settings?.dailyLimit || 5.0;
+        const percentage = Math.min(100, (this.sessionCost / dailyLimit) * 100);
+        
+        if (progressBar) {
+            progressBar.style.width = `${percentage}%`;
+            
+            // Change color based on usage
+            if (percentage > 80) {
+                progressBar.style.background = 'linear-gradient(90deg, #ff0000, #ff8800)';
+            } else if (percentage > 60) {
+                progressBar.style.background = 'linear-gradient(90deg, #ffff00, #ff8800)';
+            } else {
+                progressBar.style.background = 'linear-gradient(90deg, #00ff00, #ffff00, #ff00ff)';
+            }
+        }
+    }
+    
+    // Enhanced file tree with activity indicators
+    addFileActivity(filePath, activityType) {
+        const fileItems = document.querySelectorAll('.file-tree li');
+        fileItems.forEach(item => {
+            if (item.getAttribute('data-path')?.includes(filePath)) {
+                // Add activity indicator
+                if (!item.querySelector('.notification-badge')) {
+                    const badge = document.createElement('span');
+                    badge.className = 'notification-badge';
+                    badge.textContent = activityType === 'modified' ? '●' : '+';
+                    badge.style.position = 'relative';
+                    badge.style.top = 'auto';
+                    badge.style.right = 'auto';
+                    badge.style.marginLeft = '5px';
+                    item.appendChild(badge);
+                    
+                    // Remove after 3 seconds
+                    setTimeout(() => {
+                        if (badge.parentNode) {
+                            badge.parentNode.removeChild(badge);
+                        }
+                    }, 3000);
+                }
+            }
+        });
+    }
+    
+    // Simulate CPU usage (for visual effect)
+    simulateCPUActivity() {
+        const cpuBars = document.querySelectorAll('.cpu-bar');
+        cpuBars.forEach((bar, index) => {
+            const height = Math.random() * 100;
+            const delay = Math.random() * 0.5;
+            bar.style.height = `${height}%`;
+            bar.style.animationDelay = `${delay}s`;
+        });
+    }
+    
+    // Start continuous UI animations
+    startUIAnimations() {
+        // Simulate CPU activity every 2 seconds
+        this.cpuInterval = setInterval(() => {
+            this.simulateCPUActivity();
+        }, 2000);
+        
+        // Random activity bursts
+        this.activityInterval = setInterval(() => {
+            if (Math.random() > 0.7) {
+                this.showRandomActivity();
+            }
+        }, 5000);
+    }
+    
+    showRandomActivity() {
+        const activities = [
+            'File indexing...',
+            'Memory optimization...',
+            'Cache refresh...',
+            'Syntax analysis...',
+            'Background compilation...'
+        ];
+        
+        const activity = activities[Math.floor(Math.random() * activities.length)];
+        this.showNotification('info', activity, 2000);
+    }
+    
+    // Enhanced token display with effects
+    updateTokenCount(tokens, cost) {
+        // Update token and cost display with animation
+        const tokenElement = document.getElementById('tokenCount');
+        const costElement = document.getElementById('costAmount');
+        
+        if (tokenElement) {
+            const currentTokens = parseInt(tokenElement.textContent) || 0;
+            const newTokens = currentTokens + tokens;
+            
+            // Animate count up
+            this.animateNumber(tokenElement, currentTokens, newTokens);
+        }
+        
+        if (costElement && cost) {
+            const currentCost = parseFloat(costElement.textContent) || 0;
+            const newCost = currentCost + cost;
+            
+            // Animate cost up
+            this.animateNumber(costElement, currentCost, newCost, 3);
+        }
+    }
+    
+    animateNumber(element, start, end, decimals = 0) {
+        const duration = 1000; // 1 second
+        const startTime = Date.now();
+        
+        const animate = () => {
+            const elapsed = Date.now() - startTime;
+            const progress = Math.min(elapsed / duration, 1);
+            
+            const current = start + (end - start) * progress;
+            element.textContent = decimals > 0 ? current.toFixed(decimals) : Math.floor(current);
+            
+            if (progress < 1) {
+                requestAnimationFrame(animate);
+            }
+        };
+        
+        animate();
+    }
+    
+    // API Configuration Management
+    async testAPIKey(provider) {
+        const statusElement = document.getElementById(`${provider}Status`);
+        const indicatorElement = statusElement.querySelector('.status-indicator');
+        const textElement = statusElement.querySelector('.status-text');
+        const testButton = document.querySelector(`button[onclick="testAPIKey('${provider}')"]`);
+        
+        // Set testing state
+        indicatorElement.className = 'status-indicator status-testing';
+        textElement.textContent = 'Testing...';
+        testButton.disabled = true;
+        
+        try {
+            const apiKey = document.getElementById(`${provider}Key`).value;
+            
+            if (!apiKey || apiKey.trim() === '') {
+                throw new Error('API key is empty');
+            }
+            
+            // Send test request to backend
+            const response = await fetch('/api/test-api-key', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                body: JSON.stringify({
+                    provider: provider,
+                    api_key: apiKey
+                })
+            });
+            
+            const result = await response.json();
+            
+            if (result.status === 'valid') {
+                indicatorElement.className = 'status-indicator status-valid';
+                textElement.textContent = 'Valid';
+                this.showNotification('success', `${provider} API key is valid!`);
+            } else {
+                indicatorElement.className = 'status-indicator status-invalid';
+                textElement.textContent = 'Invalid';
+                this.showNotification('error', `${provider} API key is invalid: ${result.message}`);
+            }
+        } catch (error) {
+            indicatorElement.className = 'status-indicator status-invalid';
+            textElement.textContent = 'Error';
+            this.showNotification('error', `Error testing ${provider} API key: ${error.message}`);
+        } finally {
+            testButton.disabled = false;
+        }
+    }
+    
+    async checkAllAPIKeys() {
+        await Promise.all([
+            this.testAPIKey('openai'),
+            this.testAPIKey('anthropic'),
+            this.testAPIKey('github')
+        ]);
+    }
+    
+    async loadAPIConfig() {
+        try {
+            const response = await fetch('/api/config');
+            if (response.ok) {
+                const config = await response.json();
+                
+                // Update OpenAI status
+                if (config.openai.configured) {
+                    this.updateAPIStatus('openai', 'valid', `Configured (${config.openai.model})`);
+                    document.getElementById('openaiKey').placeholder = 'sk-...(configured)';
+                } else {
+                    this.updateAPIStatus('openai', 'invalid', 'Not Configured');
+                    document.getElementById('openaiKey').placeholder = 'sk-...';
+                }
+                
+                // Update Anthropic status
+                if (config.anthropic.configured) {
+                    this.updateAPIStatus('anthropic', 'valid', `Configured (${config.anthropic.model})`);
+                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...(configured)';
+                } else {
+                    this.updateAPIStatus('anthropic', 'invalid', 'Not Configured');
+                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...';
+                }
+                
+                this.showNotification('info', 'API configuration loaded');
+            } else {
+                throw new Error('Failed to load configuration');
+            }
+        } catch (error) {
+            console.error('Error loading API config:', error);
+            this.updateAPIStatus('openai', 'unknown', 'Error');
+            this.updateAPIStatus('anthropic', 'unknown', 'Error');
+            this.showNotification('error', 'Failed to load API configuration');
+        }
+    }
+    
+    updateAPIStatus(provider, status, text) {
+        const statusElement = document.getElementById(`${provider}Status`);
+        if (statusElement) {
+            const indicatorElement = statusElement.querySelector('.status-indicator');
+            const textElement = statusElement.querySelector('.status-text');
+            
+            if (indicatorElement) {
+                indicatorElement.className = `status-indicator status-${status}`;
+            }
+            if (textElement) {
+                textElement.textContent = text;
+            }
+        }
+    }
+    
+    async loadConfigFromBackend() {
+        try {
+            const response = await fetch('/api/config');
+            if (response.ok) {
+                const config = await response.json();
+                
+                // Update API key fields based on the actual API response format
+                if (config.openai?.configured) {
+                    document.getElementById('openaiKey').placeholder = 'sk-...(configured)';
+                    this.updateAPIStatus('openai', 'valid', 'Configured');
+                    // Update default model if available
+                    if (config.openai.model) {
+                        document.getElementById('defaultModel').value = config.openai.model;
+                    }
+                } else {
+                    document.getElementById('openaiKey').placeholder = 'sk-...';
+                    this.updateAPIStatus('openai', 'invalid', 'Not Set');
+                }
+                
+                if (config.anthropic?.configured) {
+                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...(configured)';
+                    this.updateAPIStatus('anthropic', 'valid', 'Configured');
+                } else {
+                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...';
+                    this.updateAPIStatus('anthropic', 'invalid', 'Not Set');
+                }
+                
+                if (config.github?.configured) {
+                    document.getElementById('githubKey').placeholder = 'ghp_...(configured)';
+                    this.updateAPIStatus('github', 'valid', 'Configured');
+                } else {
+                    document.getElementById('githubKey').placeholder = 'ghp_...';
+                    this.updateAPIStatus('github', 'invalid', 'Not Set');
+                }
+                
+                console.log('Configuration loaded:', config);
+            } else {
+                throw new Error('Failed to load backend configuration');
+            }
+        } catch (error) {
+            console.error('Error loading backend config:', error);
+            // Set default status when loading fails
+            this.updateAPIStatus('openai', 'unknown', 'Unknown');
+            this.updateAPIStatus('anthropic', 'unknown', 'Unknown');
+            this.updateAPIStatus('github', 'unknown', 'Unknown');
+        }
+    }
+    
+    updateAPIStatus(provider, status, text) {
+        const statusElement = document.getElementById(`${provider}Status`);
+        const indicatorElement = statusElement.querySelector('.status-indicator');
+        const textElement = statusElement.querySelector('.status-text');
+        
+        indicatorElement.className = `status-indicator status-${status}`;
+        textElement.textContent = text;
+    }
+    
+    // Check API status on settings load
+    async checkInitialAPIStatus() {
+        // Check if keys are already configured
+        await this.loadConfigFromBackend();
+    }
 }
 
 // Chat input handler
@@ -1504,24 +2140,7 @@ function handleTerminalInput(event) {
     }
 }
 
-// Tab switching functionality
-function switchTab(tabName) {
-    const tabs = document.querySelectorAll('.tab');
-    const terminalOutput = document.getElementById('terminalOutput');
-    const taskQueue = document.getElementById('taskQueue');
-    
-    tabs.forEach(tab => tab.classList.remove('active'));
-    
-    if (tabName === 'terminal') {
-        document.querySelector('.tab:nth-child(2)').classList.add('active');
-        terminalOutput.style.display = 'block';
-        taskQueue.style.display = 'none';
-    } else if (tabName === 'tasks') {
-        document.querySelector('.tab:nth-child(1)').classList.add('active');
-        terminalOutput.style.display = 'none';
-        taskQueue.style.display = 'block';
-    }
-}
+// Tab switching functionality is no longer needed since tasks and terminal are separate containers
 
 // Refresh tasks function
 function refreshTasks() {
@@ -1532,19 +2151,7 @@ function refreshTasks() {
     }
 }
 
-// Add tab click listeners
-document.addEventListener('DOMContentLoaded', () => {
-    const tabs = document.querySelectorAll('.tab');
-    tabs.forEach((tab, index) => {
-        tab.addEventListener('click', () => {
-            if (index === 0) switchTab('tasks');
-            if (index === 1) switchTab('terminal');
-        });
-    });
-    
-    // Initialize in tasks view
-    switchTab('tasks');
-});
+// Tab functionality removed - tasks and terminal are now separate containers
 
 // Global functions for HTML onclick handlers
 function createNewSession() {
@@ -1599,6 +2206,42 @@ function newFile() {
     }
 }
 
+function closeTab(tabId) {
+    if (window.ide) {
+        window.ide.closeTab(tabId);
+    }
+}
+
+function switchTab(tabId) {
+    if (window.ide) {
+        window.ide.switchTab(tabId);
+    }
+}
+
+function togglePreview() {
+    if (window.ide) {
+        window.ide.togglePreview();
+    }
+}
+
+function testAPIKey(provider) {
+    if (window.ide) {
+        window.ide.testAPIKey(provider);
+    }
+}
+
+function checkAllAPIKeys() {
+    if (window.ide) {
+        window.ide.checkAllAPIKeys();
+    }
+}
+
+function loadConfigFromBackend() {
+    if (window.ide) {
+        window.ide.loadConfigFromBackend();
+    }
+}
+
 // Initialize IDE when page loads
 let ide;
 document.addEventListener('DOMContentLoaded', () => {
@@ -1606,24 +2249,55 @@ document.addEventListener('DOMContentLoaded', () => {
     window.ide = ide; // Make globally accessible
     
     // Initialize resize functionality
-    initializeResize();
+    // initializeResize(); // Disabled - using simple-resize.js instead
 });
 
 // Resize functionality
+// Reset layout to defaults
+function resetLayout() {
+    const ideContainer = document.querySelector('.ide-container');
+    if (ideContainer) {
+        ideContainer.style.gridTemplateColumns = '300px 1fr 1fr 300px';
+        ideContainer.style.gridTemplateRows = '1fr 200px';
+        ideContainer.style.gridTemplateAreas = `
+            "sidebar editor editor chat"
+            "sidebar tasks terminal chat"
+        `;
+        
+        // Reset chat handle position
+        const chatHandle = document.getElementById('resizeChat');
+        if (chatHandle) {
+            chatHandle.style.right = 'calc(300px - 4px)';
+        }
+        
+        console.log('Layout reset to defaults');
+        
+        // Trigger Monaco editor resize
+        if (window.ide && window.ide.editor) {
+            window.ide.editor.layout();
+        }
+    }
+}
+
+// Make reset function globally accessible for testing
+window.resetLayout = resetLayout;
+
 function initializeResize() {
     const ideContainer = document.querySelector('.ide-container');
     const sidebarHandle = document.getElementById('resizeSidebar');
     const chatHandle = document.getElementById('resizeChat');
     const terminalHandle = document.getElementById('resizeTerminal');
+    const tasksHandle = document.getElementById('resizeTasks');
     
     console.log('Initializing resize...', {
         ideContainer,
         sidebarHandle,
         chatHandle,
-        terminalHandle
+        terminalHandle,
+        tasksHandle
     });
     
-    if (!ideContainer || !sidebarHandle || !chatHandle || !terminalHandle) {
+    if (!ideContainer || !sidebarHandle || !chatHandle || !terminalHandle || !tasksHandle) {
         console.error('Resize elements not found');
         return;
     }
@@ -1653,6 +2327,14 @@ function initializeResize() {
         startPos = e.clientX;
         const cols = window.getComputedStyle(ideContainer).gridTemplateColumns.split(' ');
         startSize = parseInt(cols[cols.length - 1].replace('px', ''));
+        
+        console.log('Chat resize start:', {
+            startPos,
+            cols,
+            lastCol: cols[cols.length - 1],
+            startSize
+        });
+        
         chatHandle.classList.add('dragging');
         document.body.style.cursor = 'col-resize';
         document.body.classList.add('resizing');
@@ -1672,6 +2354,21 @@ function initializeResize() {
         e.preventDefault();
     });
     
+    // Tasks resize (split between tasks and terminal)
+    tasksHandle.addEventListener('mousedown', (e) => {
+        isResizing = true;
+        currentHandle = 'tasks';
+        startPos = e.clientX;
+        // Get current grid template and calculate tasks width
+        const cols = window.getComputedStyle(ideContainer).gridTemplateColumns.split(' ');
+        const middleSection = cols[1]; // Should be "1fr"
+        startSize = ideContainer.offsetWidth - 300 - 300; // Total width minus sidebars
+        tasksHandle.classList.add('dragging');
+        document.body.style.cursor = 'col-resize';
+        document.body.classList.add('resizing');
+        e.preventDefault();
+    });
+    
     // Mouse move handler
     document.addEventListener('mousemove', (e) => {
         if (!isResizing) return;
@@ -1681,19 +2378,63 @@ function initializeResize() {
             const newSize = Math.max(200, Math.min(600, startSize + delta));
             // Get current chat panel size to maintain it
             const currentCols = window.getComputedStyle(ideContainer).gridTemplateColumns.split(' ');
-            const chatSize = currentCols[2] || '300px';
-            ideContainer.style.gridTemplateColumns = `${newSize}px 1fr ${chatSize}`;
+            const chatSize = currentCols[3] || '300px';  // Chat is at index 3 in 4-column layout
+            ideContainer.style.gridTemplateColumns = `${newSize}px 1fr 1fr ${chatSize}`;
+            // Ensure grid areas are explicitly set to maintain layout
+            ideContainer.style.gridTemplateAreas = `
+                "sidebar editor editor chat"
+                "sidebar tasks terminal chat"
+            `;
         } else if (currentHandle === 'chat') {
             const delta = startPos - e.clientX;
             const newSize = Math.max(200, Math.min(600, startSize + delta));
             // Get current sidebar size to maintain it
             const currentCols = window.getComputedStyle(ideContainer).gridTemplateColumns.split(' ');
             const sidebarSize = currentCols[0] || '300px';
-            ideContainer.style.gridTemplateColumns = `${sidebarSize} 1fr ${newSize}px`;
+            
+            console.log('Chat resize:', {
+                delta,
+                newSize,
+                sidebarSize,
+                currentCols,
+                newTemplate: `${sidebarSize} 1fr 1fr ${newSize}px`
+            });
+            
+            ideContainer.style.gridTemplateColumns = `${sidebarSize} 1fr 1fr ${newSize}px`;
+            // Ensure grid areas are explicitly set to maintain layout
+            ideContainer.style.gridTemplateAreas = `
+                "sidebar editor editor chat"
+                "sidebar tasks terminal chat"
+            `;
+            
+            // Update the chat resize handle position
+            const chatHandle = document.getElementById('resizeChat');
+            if (chatHandle) {
+                chatHandle.style.right = `calc(${newSize}px - 4px)`;
+            }
+            
+            // Force layout recalculation
+            ideContainer.offsetHeight;
+            
+            console.log('Applied grid template:', ideContainer.style.gridTemplateColumns);
         } else if (currentHandle === 'terminal') {
             const delta = startPos - e.clientY;
             const newSize = Math.max(100, Math.min(400, startSize + delta));
             ideContainer.style.gridTemplateRows = `1fr ${newSize}px`;
+        } else if (currentHandle === 'tasks') {
+            const delta = e.clientX - startPos;
+            const totalBottomWidth = ideContainer.offsetWidth - 300 - 300; // Minus sidebars
+            const newTasksWidth = Math.max(200, Math.min(totalBottomWidth - 200, startSize / 2 + delta));
+            const newTerminalWidth = totalBottomWidth - newTasksWidth;
+            
+            // Update grid template to split the middle area
+            const sidebarWidth = 300;
+            const chatWidth = 300;
+            ideContainer.style.gridTemplateColumns = `${sidebarWidth}px ${newTasksWidth}px ${newTerminalWidth}px ${chatWidth}px`;
+            ideContainer.style.gridTemplateAreas = `
+                "sidebar editor editor chat"
+                "sidebar tasks terminal chat"
+            `;
         }
         
         // Trigger Monaco editor resize
@@ -1714,6 +2455,7 @@ function initializeResize() {
             sidebarHandle.classList.remove('dragging');
             chatHandle.classList.remove('dragging');
             terminalHandle.classList.remove('dragging');
+            tasksHandle.classList.remove('dragging');
         }
     });
 }
