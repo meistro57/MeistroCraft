@@ -26,6 +26,9 @@ from persistent_memory import PersistentMemory, MemoryType, MemoryPriority
 from workspace_manager import WorkspaceManager
 from github_client import create_github_client, GitHubClient, GitHubClientError
 from github_workflows import create_workflow_integration, WorkflowIntegration, GitHubWorkflowError
+from cicd_integration import create_cicd_integration, GitHubActionsManager, CICDIntegrationError
+from build_monitor import BuildStatusMonitor
+from deployment_automation import create_deployment_automation, DeploymentAutomation
 
 def load_config(config_path: str = "config/config.json") -> Dict[str, Any]:
     """Load configuration from JSON file."""
@@ -1248,6 +1251,11 @@ def main():
     # Initialize GitHub workflow integration
     workflow_integration = create_workflow_integration(github_client) if github_client else None
     
+    # Initialize Phase 3: CI/CD Pipeline Integration
+    cicd_manager = create_cicd_integration(github_client, config) if github_client else None
+    build_monitor = BuildStatusMonitor(cicd_manager, config) if cicd_manager else None
+    deployment_automation = create_deployment_automation(cicd_manager, build_monitor, config) if cicd_manager and build_monitor else None
+    
     # Show memory status
     memory_summary = persistent_memory.get_memory_summary()
     print(f"  {memory_summary}")
@@ -1258,8 +1266,19 @@ def main():
             print(f"  🔄 GitHub workflows: enabled (PR/Issue automation)")
         else:
             print(f"  🔄 GitHub workflows: basic mode")
+        
+        # Phase 3 CI/CD status
+        if cicd_manager:
+            print(f"  🚀 CI/CD integration: enabled (GitHub Actions)")
+            if build_monitor:
+                print(f"  📊 Build monitoring: enabled (Status tracking & analytics)")
+            if deployment_automation:
+                print(f"  🚀 Deployment automation: enabled (Multi-environment)")
+        else:
+            print(f"  🚀 CI/CD integration: disabled")
     else:
         print(f"  🐙 GitHub integration: disabled")
+        print(f"  🚀 CI/CD integration: disabled (requires GitHub)")
     
     print(f"Configuration loaded:")
     print(f"  Claude model: {config.get('claude_model', 'default')}")
@@ -1583,6 +1602,12 @@ def main():
             print("  --github prs <owner/repo>        # List pull requests")
             print("  --github issues <owner/repo>     # List issues")
             print("  --github workflow <owner/repo>   # Show workflow status")
+            print("  Phase 3 - CI/CD Commands:")
+            print("  --github builds <owner/repo>     # Monitor build status")
+            print("  --github deploy <owner/repo> <env> # Deploy to environment")
+            print("  --github rollback <owner/repo> <env> # Rollback deployment")
+            print("  --github health <owner/repo>     # Check build health")
+            print("  --github actions <owner/repo>    # List workflow runs")
             sys.exit(1)
         
         subcommand = sys.argv[2]
@@ -1774,10 +1799,197 @@ def main():
             except GitHubWorkflowError as e:
                 print(f"❌ Failed to get workflow status: {e}")
         
+        # Phase 3 CI/CD Commands
+        elif subcommand == "builds":
+            if len(sys.argv) < 4:
+                print("❌ --github builds requires a repository name (owner/repo)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            branch = sys.argv[4] if len(sys.argv) > 4 else None
+            
+            if not build_monitor:
+                print("❌ Build monitoring not available (requires CI/CD integration)")
+                sys.exit(1)
+            
+            print(f"📊 Getting build status for {repo_name}" + (f" (branch: {branch})" if branch else ""))
+            try:
+                status = build_monitor.get_build_status(repo_name, branch)
+                
+                print(f"🏗️  Build Status: {status.get('status')}")
+                print(f"📈 Overall Health: {status.get('overall_health', 0):.1%}")
+                
+                metrics = status.get('metrics', {})
+                print(f"📊 Metrics:")
+                print(f"  Success Rate: {metrics.get('success_rate', 0):.1%}")
+                print(f"  Total Runs: {metrics.get('total_runs', 0)}")
+                print(f"  Consecutive Failures: {metrics.get('consecutive_failures', 0)}")
+                
+                recommendations = status.get('recommendations', [])
+                if recommendations:
+                    print(f"\n💡 Recommendations:")
+                    for rec in recommendations[:3]:
+                        print(f"  • {rec.get('title', 'Unknown')}: {rec.get('description', '')}")
+                
+            except Exception as e:
+                print(f"❌ Failed to get build status: {e}")
+        
+        elif subcommand == "deploy":
+            if len(sys.argv) < 5:
+                print("❌ --github deploy requires repository and environment (owner/repo environment)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            environment = sys.argv[4]
+            ref = sys.argv[5] if len(sys.argv) > 5 else 'main'
+            
+            if not deployment_automation:
+                print("❌ Deployment automation not available (requires CI/CD integration)")
+                sys.exit(1)
+            
+            print(f"🚀 Creating deployment for {repo_name} to {environment} (ref: {ref})")
+            try:
+                result = deployment_automation.create_deployment(
+                    repo_name=repo_name,
+                    environment=environment,
+                    ref=ref,
+                    description=f"MeistroCraft deployment to {environment}"
+                )
+                
+                if result.get('deployment') == 'created':
+                    print(f"✅ Deployment created successfully!")
+                    print(f"  Deployment ID: {result.get('deployment_id')}")
+                    print(f"  Environment: {environment}")
+                    print(f"  Reference: {ref}")
+                    print(f"  Status: {result.get('status')}")
+                elif result.get('deployment') == 'blocked':
+                    print(f"🚫 Deployment blocked by quality gates:")
+                    for gate in result.get('failed_gates', []):
+                        print(f"  ❌ {gate}")
+                elif result.get('deployment') == 'pending_approval':
+                    print(f"⏳ Deployment requires manual approval")
+                    approval = result.get('approval_request', {})
+                    if approval.get('approval_url'):
+                        print(f"  Approve at: {approval['approval_url']}")
+                else:
+                    print(f"❌ Deployment failed: {result.get('message', 'Unknown error')}")
+                
+            except Exception as e:
+                print(f"❌ Failed to create deployment: {e}")
+        
+        elif subcommand == "rollback":
+            if len(sys.argv) < 5:
+                print("❌ --github rollback requires repository and environment (owner/repo environment)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            environment = sys.argv[4]
+            target_version = sys.argv[5] if len(sys.argv) > 5 else None
+            
+            if not deployment_automation:
+                print("❌ Deployment automation not available (requires CI/CD integration)")
+                sys.exit(1)
+            
+            print(f"🔄 Rolling back {repo_name} in {environment}" + (f" to {target_version}" if target_version else " to last successful deployment"))
+            try:
+                result = deployment_automation.rollback_deployment(
+                    repo_name=repo_name,
+                    environment=environment,
+                    target_version=target_version
+                )
+                
+                if result.get('rollback') == 'completed':
+                    print(f"✅ Rollback completed successfully!")
+                    print(f"  Target Version: {result.get('target_version')}")
+                    print(f"  Deployment ID: {result.get('deployment_id')}")
+                    rollback_result = result.get('result', {})
+                    if rollback_result.get('monitoring') == 'completed':
+                        print(f"  Final Status: {rollback_result.get('final_status')}")
+                else:
+                    print(f"❌ Rollback failed: {result.get('message', 'Unknown error')}")
+                
+            except Exception as e:
+                print(f"❌ Failed to rollback deployment: {e}")
+        
+        elif subcommand == "health":
+            if len(sys.argv) < 4:
+                print("❌ --github health requires a repository name (owner/repo)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            
+            if not build_monitor:
+                print("❌ Build monitoring not available (requires CI/CD integration)")
+                sys.exit(1)
+            
+            print(f"🏥 Monitoring build health for {repo_name}...")
+            try:
+                health = build_monitor.monitor_build_health(repo_name)
+                
+                if health.get('health_monitoring') == 'completed':
+                    score = health.get('health_score', 0)
+                    print(f"💚 Health Score: {score:.1%}")
+                    
+                    alerts = health.get('alerts', [])
+                    if alerts:
+                        print(f"🚨 Alerts ({len(alerts)}):")
+                        for alert in alerts:
+                            severity_emoji = "🔴" if alert['severity'] == 'critical' else "🟡" if alert['severity'] == 'high' else "🟠"
+                            print(f"  {severity_emoji} {alert['type']}: {alert['message']}")
+                    else:
+                        print(f"✅ No alerts - build health is good!")
+                    
+                    action_items = health.get('action_items', [])
+                    if action_items:
+                        print(f"\n📋 Action Items:")
+                        for item in action_items[:3]:
+                            priority_emoji = "🔥" if item['priority'] == 'critical' else "⚡" if item['priority'] == 'high' else "📝"
+                            print(f"  {priority_emoji} {item['action']}: {item['description']}")
+                else:
+                    print(f"❌ Health monitoring failed: {health.get('message', 'Unknown error')}")
+                
+            except Exception as e:
+                print(f"❌ Failed to monitor build health: {e}")
+        
+        elif subcommand == "actions":
+            if len(sys.argv) < 4:
+                print("❌ --github actions requires a repository name (owner/repo)")
+                sys.exit(1)
+            
+            repo_name = sys.argv[3]
+            branch = sys.argv[4] if len(sys.argv) > 4 else None
+            limit = int(sys.argv[5]) if len(sys.argv) > 5 else 10
+            
+            if not cicd_manager:
+                print("❌ CI/CD integration not available")
+                sys.exit(1)
+            
+            print(f"⚡ Listing workflow runs for {repo_name}" + (f" (branch: {branch})" if branch else ""))
+            try:
+                runs = cicd_manager.get_workflow_runs(
+                    repo_name=repo_name,
+                    branch=branch,
+                    limit=limit
+                )
+                
+                if runs:
+                    print(f"Found {len(runs)} workflow run(s):")
+                    for run in runs:
+                        status_emoji = "✅" if run.get('conclusion') == 'success' else "❌" if run.get('conclusion') == 'failure' else "🔄"
+                        print(f"  {status_emoji} #{run.get('run_number')} {run.get('name')}")
+                        print(f"    📝 {run.get('head_branch')} • 🔗 {run.get('html_url')}")
+                        print(f"    📅 {run.get('created_at', '')[:19]}")
+                else:
+                    print(f"  No workflow runs found.")
+                
+            except Exception as e:
+                print(f"❌ Failed to list workflow runs: {e}")
+        
         else:
             print(f"❌ Unknown GitHub subcommand: {subcommand}")
             print("Available commands:")
-            print("  test, status, repos, create, fork, prs, issues, workflow")
+            print("  Phase 1&2: test, status, repos, create, fork, prs, issues, workflow")
+            print("  Phase 3: builds, deploy, rollback, health, actions")
             sys.exit(1)
     
     elif len(sys.argv) > 1 and sys.argv[1] == "--github-interactive":
