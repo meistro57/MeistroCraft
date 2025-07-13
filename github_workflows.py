@@ -13,6 +13,12 @@ from pathlib import Path
 
 from github_client import GitHubClient, GitHubClientError, GitHubAuthenticationError
 
+try:
+    from code_review_analyzer import CodeReviewAnalyzer, create_code_review_analyzer
+except ImportError:
+    CodeReviewAnalyzer = None
+    create_code_review_analyzer = None
+
 
 class GitHubWorkflowError(Exception):
     """Custom exception for GitHub workflow errors."""
@@ -25,15 +31,22 @@ class PullRequestManager:
     Designed for MeistroCraft integration with real repositories.
     """
     
-    def __init__(self, github_client: GitHubClient):
+    def __init__(self, github_client: GitHubClient, config: Dict[str, Any] = None):
         """
         Initialize PR manager with GitHub client.
         
         Args:
             github_client: Authenticated GitHub client instance
+            config: Configuration dictionary for AI features
         """
         self.github = github_client
+        self.config = config or {}
         self.logger = logging.getLogger(__name__)
+        
+        # Initialize code review analyzer if available
+        self.code_review_analyzer = None
+        if create_code_review_analyzer:
+            self.code_review_analyzer = create_code_review_analyzer(github_client, config)
     
     def create_pr_from_task(
         self,
@@ -122,6 +135,14 @@ class PullRequestManager:
                 }
             
             self.logger.info(f"Created PR #{pr_data['number']}: {pr_title}")
+            
+            # Add AI code review if enabled
+            if self.code_review_analyzer and self.config.get('enable_ai_review', True):
+                try:
+                    self._add_ai_code_review(repo_name, pr_data['number'], task, result)
+                except Exception as e:
+                    self.logger.warning(f"Failed to add AI code review: {e}")
+            
             return pr_data
             
         except Exception as e:
@@ -303,6 +324,147 @@ Review the changes carefully before merging.
         except Exception as e:
             self.logger.error(f"Failed to list PRs: {e}")
             raise GitHubWorkflowError(f"Failed to list PRs: {e}")
+    
+    def _add_ai_code_review(
+        self, 
+        repo_name: str, 
+        pr_number: int,
+        task: Dict[str, Any] = None,
+        result: Dict[str, Any] = None
+    ) -> None:
+        """
+        Add AI-powered code review comments to a pull request.
+        
+        Args:
+            repo_name: Repository name (owner/repo)
+            pr_number: Pull request number
+            task: MeistroCraft task that created the PR (optional)
+            result: Task execution result (optional)
+        """
+        if not self.code_review_analyzer:
+            return
+        
+        try:
+            # Analyze the pull request
+            review_analysis = self.code_review_analyzer.analyze_pull_request(repo_name, pr_number)
+            
+            # Generate review comment
+            review_comment = self._generate_ai_review_comment(review_analysis, task, result)
+            
+            # Post review comment
+            self._post_pr_review_comment(repo_name, pr_number, review_comment)
+            
+            self.logger.info(f"Added AI code review to PR #{pr_number}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to add AI code review: {e}")
+            # Don't re-raise - this is optional functionality
+    
+    def _generate_ai_review_comment(
+        self, 
+        review_analysis: Dict[str, Any],
+        task: Dict[str, Any] = None,
+        result: Dict[str, Any] = None
+    ) -> str:
+        """Generate AI review comment from analysis results."""
+        overall_score = review_analysis.get('overall_score', 0)
+        summary = review_analysis.get('summary', '')
+        security_concerns = review_analysis.get('security_concerns', [])
+        performance_suggestions = review_analysis.get('performance_suggestions', [])
+        recommendations = review_analysis.get('recommendations', [])
+        ai_insights = review_analysis.get('ai_insights')
+        
+        # Build review comment
+        comment = f"""## 🤖 AI-Powered Code Review
+        
+**Overall Quality Score**: {overall_score}/100
+
+{summary}
+
+"""
+        
+        # Add security section if issues found
+        if security_concerns:
+            comment += "### 🔒 Security Analysis\n"
+            critical_security = [c for c in security_concerns if c['severity'] == 'critical']
+            
+            if critical_security:
+                comment += "⚠️ **CRITICAL SECURITY ISSUES FOUND**\n\n"
+                for concern in critical_security[:3]:  # Limit to top 3
+                    comment += f"- **{concern['filename']}:{concern['line']}** - {concern['message']}\n"
+                    comment += f"  💡 *{concern['suggestion']}*\n\n"
+            else:
+                high_security = [c for c in security_concerns if c['severity'] == 'high']
+                if high_security:
+                    comment += "⚠️ **High Priority Security Issues**\n\n"
+                    for concern in high_security[:2]:  # Limit to top 2
+                        comment += f"- **{concern['filename']}:{concern['line']}** - {concern['message']}\n\n"
+        
+        # Add performance section if suggestions found
+        if performance_suggestions:
+            comment += "### ⚡ Performance Optimization\n"
+            for suggestion in performance_suggestions[:3]:  # Limit to top 3
+                comment += f"- **{suggestion['filename']}:{suggestion['line']}** - {suggestion['message']}\n"
+                comment += f"  💡 *{suggestion['suggestion']}*\n\n"
+        
+        # Add AI insights if available
+        if ai_insights:
+            comment += f"### 🧠 AI Strategic Insights\n{ai_insights}\n\n"
+        
+        # Add recommendations
+        if recommendations:
+            comment += "### 📋 Recommendations\n"
+            for rec in recommendations:
+                comment += f"- {rec}\n"
+            comment += "\n"
+        
+        # Add task context if available
+        if task:
+            comment += f"""### 🎯 MeistroCraft Task Context
+- **Action**: {task.get('action', 'unknown')}
+- **File**: {task.get('filename', 'N/A')}
+- **Task**: {task.get('instruction', 'No description')[:100]}{'...' if len(task.get('instruction', '')) > 100 else ''}
+
+"""
+        
+        # Add overall assessment
+        if overall_score >= 90:
+            comment += "### ✨ Overall Assessment\n🎉 **Excellent work!** This code meets high quality standards.\n\n"
+        elif overall_score >= 70:
+            comment += "### ✅ Overall Assessment\n👍 **Good quality code** with minor areas for improvement.\n\n"
+        elif overall_score >= 50:
+            comment += "### ⚠️ Overall Assessment\n🔧 **Needs attention** - several issues should be addressed.\n\n"
+        else:
+            comment += "### 🚨 Overall Assessment\n⛔ **Significant issues found** - review and refactor recommended.\n\n"
+        
+        comment += """---
+*This review was automatically generated by MeistroCraft's AI-powered code analysis.*
+*Review the suggestions carefully and apply improvements as appropriate.*"""
+        
+        return comment
+    
+    def _post_pr_review_comment(self, repo_name: str, pr_number: int, comment: str) -> None:
+        """Post a review comment to a pull request."""
+        try:
+            repo = self.github.get_repository(repo_name)
+            
+            if hasattr(repo, 'get_pull'):  # PyGitHub object
+                pr = repo.get_pull(pr_number)
+                pr.create_issue_comment(comment)
+            else:
+                # Fallback mode
+                comment_data = {"body": comment}
+                self.github._make_fallback_request(
+                    "POST",
+                    f"/repos/{repo_name}/issues/{pr_number}/comments",
+                    comment_data
+                )
+            
+            self.logger.info(f"Posted AI review comment to PR #{pr_number}")
+            
+        except Exception as e:
+            self.logger.error(f"Failed to post review comment: {e}")
+            raise
 
 
 class IssueManager:
@@ -815,17 +977,22 @@ class WorkflowIntegration:
             return False
 
 
-def create_workflow_integration(github_client: GitHubClient) -> Optional[WorkflowIntegration]:
+def create_workflow_integration(github_client: GitHubClient, config: Dict[str, Any] = None) -> Optional[WorkflowIntegration]:
     """
-    Create a workflow integration instance.
+    Create and configure workflow integration with GitHub client.
     
     Args:
-        github_client: Authenticated GitHub client
+        github_client: Authenticated GitHub client instance
+        config: Configuration dictionary
         
     Returns:
-        WorkflowIntegration instance or None if not available
+        WorkflowIntegration instance or None if GitHub is disabled
     """
     if not github_client or not github_client.is_authenticated():
         return None
-    
-    return WorkflowIntegration(github_client)
+        
+    try:
+        return WorkflowIntegration(github_client, config)
+    except Exception as e:
+        logging.getLogger(__name__).error(f"Failed to create workflow integration: {e}")
+        return None
