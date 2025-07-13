@@ -1,17 +1,26 @@
 # MeistroCraft IDE - Technical Documentation for Claude
 
 ## Overview
-MeistroCraft is a browser-based AI-powered IDE that combines real-time code editing with intelligent assistance from GPT-4 and Claude. It provides a complete development environment with file management, terminal integration, and AI-driven code generation.
+MeistroCraft is a comprehensive AI-powered development orchestrator that operates in multiple modes:
+
+1. **🌐 Browser IDE**: Modern web-based interface with VS Code-style editing, real-time AI assistance, and session management
+2. **⚡ Command Line Interface**: Split terminal UI for interactive coding sessions with token tracking
+3. **🤖 Orchestration Engine**: Multi-agent system combining GPT-4 strategic planning with Claude Code CLI execution
+4. **🐙 GitHub Integration**: Complete workflow automation with PR/issue management and CI/CD pipeline integration
+5. **🧠 Self-Optimization**: Automatic performance analysis and intelligent code refinement
 
 ## Architecture
 
 ### Core Components
+
+#### 🌐 Web IDE Components
 
 1. **Backend (FastAPI)** - `web_server.py`
    - WebSocket handlers for real-time communication
    - File system API with security restrictions (projects folder only)
    - Integration with existing MeistroCraft AI backend
    - Session management with project folder sandboxing
+   - Auto-startup scripts with cross-platform support
 
 2. **Frontend (Vanilla JS)** - `static/js/ide.js`
    - Monaco Editor integration for code editing
@@ -23,6 +32,30 @@ MeistroCraft is a browser-based AI-powered IDE that combines real-time code edit
    - CSS Grid layout with resizable panels
    - Dark theme VS Code-style interface
    - Status bar with token tracking
+
+#### ⚡ Command Line Components
+
+4. **Main Orchestrator** - `main.py`
+   - Multi-agent coordination between GPT-4 and Claude
+   - Session management and persistence
+   - Token tracking and cost management
+   - GitHub integration and workflow automation
+
+5. **Interactive UI** - `interactive_ui.py`
+   - Split terminal interface with Rich library
+   - Real-time token display and status monitoring
+   - Command palette and keyboard shortcuts
+
+6. **GitHub Integration** - `github_client.py`, `github_workflows.py`
+   - Complete GitHub API integration
+   - Automated PR/issue creation
+   - CI/CD pipeline monitoring
+   - Repository health analysis
+
+7. **Self-Optimization** - `self_optimizer.py`
+   - Performance pattern recognition
+   - Automatic code refinement suggestions
+   - Persistent learning system
 
 ## Key Features
 
@@ -200,15 +233,43 @@ When MeistroCraft executes tasks, the system automatically:
 2. Verify file permissions and existence
 3. Check for proper error handling in WebSocket responses
 
-## Starting the IDE
+## Starting MeistroCraft
+
+### 🌐 Web IDE Mode (Browser Interface)
 
 ```bash
-# From project root
-python start_web_ide.py
-# or
-python web_server.py
+# Automated startup (recommended)
+python3 start_ide.py
+
+# Or platform-specific scripts
+./start_ide.sh     # Linux/macOS
+start_ide.bat      # Windows
+
+# Manual startup
+python3 web_server.py
 
 # Access at http://localhost:8000
+```
+
+### ⚡ Command Line Mode (CLI Interface)
+
+```bash
+# Basic example
+./meistrocraft
+
+# Single request
+./meistrocraft --request "Create a calculator app"
+
+# Interactive mode with split terminal
+./meistrocraft --interactive
+
+# GitHub operations
+python main.py --github repos
+python main.py --github workflow owner/repo
+
+# Performance optimization
+python main.py --optimize analyze
+python main.py --performance benchmark
 ```
 
 ## Configuration

@@ -3,8 +3,8 @@
 <div align="center">
   <img src="MeistroCraft_logo.png" alt="MeistroCraft" width="200" height="200">
   
-  [![Version](https://img.shields.io/badge/version-3.0.0-blue.svg)](https://github.com/meistro57/MeistroCraft)
-  [![Python](https://img.shields.io/badge/python-3.7+-brightgreen.svg)](https://python.org)
+  [![Version](https://img.shields.io/badge/version-3.1.0-blue.svg)](https://github.com/meistro57/MeistroCraft)
+  [![Python](https://img.shields.io/badge/python-3.8+-brightgreen.svg)](https://python.org)
   [![License](https://img.shields.io/badge/license-MIT-yellow.svg)](LICENSE)
   [![GitHub Actions](https://img.shields.io/badge/CI%2FCD-GitHub%20Actions-orange.svg)](https://github.com/features/actions)
   [![Performance](https://img.shields.io/badge/performance-10x%20faster-red.svg)](#performance-optimization)
@@ -26,7 +26,8 @@
 | [🧠 Self-Optimization](#-self-optimization) | Revolutionary autonomous improvement |
 | [⚡ Performance](#-performance-optimization) | 10x performance improvements |
 | [🐙 GitHub Integration](#-github-integration) | Complete workflow automation |
-| [🎨 User Interface](#-user-interface) | Modern split-terminal experience |
+| [🌐 Web IDE](#-web-ide) | Modern browser-based development environment |
+| [🎨 CLI Interface](#-cli-interface) | Advanced split-terminal experience |
 | [📊 Analytics & Monitoring](#-analytics--monitoring) | Enterprise-grade tracking |
 | [🔧 Configuration](#-configuration) | Advanced setup options |
 | [🧪 Testing & Development](#-testing--development) | Development workflows |

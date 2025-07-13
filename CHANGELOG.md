@@ -5,6 +5,33 @@ All notable changes to MeistroCraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.0] - 2025-07-13
+
+### 🌐 Web IDE & Cross-Platform Support
+
+#### ✨ Browser-Based IDE Interface
+- **Modern Web Interface**: Complete VS Code-style IDE accessible via web browser
+- **Real-time AI Assistance**: Integrated chat panel for live AI coding help during development
+- **Monaco Editor Integration**: Full-featured code editor with syntax highlighting and IntelliSense
+- **Multi-tab File Management**: Professional file management with tab system and tree explorer
+- **Session Isolation**: Each web session gets isolated project workspace for security
+
+#### 🚀 Automated Setup & Cross-Platform Support
+- **Smart Startup Scripts**: Automated installation scripts for all platforms (Python, Shell, Batch)
+- **Dependency Management**: Automatic virtual environment setup and dependency installation
+- **Configuration Templates**: Auto-copy configuration templates with guided setup
+- **Python Version Detection**: Intelligent Python executable detection (3.8+ required)
+- **Cross-Platform Compatibility**: Native support for Windows, macOS, and Linux
+
+#### 📊 Enhanced User Experience
+- **Dual Interface Options**: Choose between web IDE or command-line interface
+- **Live Token Tracking**: Real-time display of API usage and costs in both interfaces
+- **WebSocket Communication**: Instant AI responses with streaming chat interface
+- **File Explorer Integration**: Tree-based navigation with project structure visualization
+- **Auto-save Functionality**: Automatic file saving with modification indicators
+
+### 🧠 Revolutionary Self-Optimization System (Continued)
+
 ## [3.0.0] - 2025-07-13
 
 ### 🧠 Revolutionary Self-Optimization System
