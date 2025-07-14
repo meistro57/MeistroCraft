@@ -117,7 +117,7 @@ class ProjectWizard {
                                 <span class="status-text" id="stepText">Step 1 of 6</span>
                             </div>
                         </div>
-                        <button class="wizard-close" onclick="projectWizard.close()">&times;</button>
+                        <button class="wizard-close" id="wizardCloseBtn">&times;</button>
                     </div>
                     
                     <div class="wizard-progress">
@@ -141,7 +141,7 @@ class ProjectWizard {
                     <div class="wizard-debug-panel" id="debugPanel">
                         <div class="debug-header">
                             <h4>🔍 Debug Status</h4>
-                            <button class="debug-toggle" onclick="projectWizard.toggleDebug()" id="debugToggle">Show Details</button>
+                            <button class="debug-toggle" id="debugToggle">Show Details</button>
                         </div>
                         <div class="debug-content" id="debugContent" style="display: none;">
                             <div class="debug-section">
@@ -166,8 +166,8 @@ class ProjectWizard {
                     </div>
                     
                     <div class="wizard-actions">
-                        <button class="wizard-btn wizard-btn-secondary" id="prevBtn" onclick="projectWizard.previousStep()" disabled>Previous</button>
-                        <button class="wizard-btn wizard-btn-primary" id="nextBtn" onclick="projectWizard.nextStep()">Next</button>
+                        <button class="wizard-btn wizard-btn-secondary" id="prevBtn" disabled>Previous</button>
+                        <button class="wizard-btn wizard-btn-primary" id="nextBtn">Next</button>
                     </div>
                 </div>
             </div>
@@ -546,6 +546,25 @@ class ProjectWizard {
                         wizard.updateTemplateBenefits(radio.value);
                     }
                 }
+                
+                // Handle debug toggle button
+                if (e.target.id === 'debugToggle') {
+                    wizard.toggleDebug();
+                }
+                
+                // Handle wizard navigation buttons
+                if (e.target.id === 'nextBtn') {
+                    wizard.nextStep();
+                }
+                
+                if (e.target.id === 'prevBtn') {
+                    wizard.previousStep();
+                }
+                
+                // Handle close button
+                if (e.target.id === 'wizardCloseBtn') {
+                    wizard.close();
+                }
             });
         }, 100);
     }
@@ -862,10 +881,14 @@ class ProjectWizard {
     
     previousStep() {
         if (this.currentStep > 0) {
+            this.addDebugAction(`Going back from step ${this.currentStep + 1} to step ${this.currentStep}`);
             this.currentStep--;
             this.updateStepVisibility();
             this.updateProgress();
             this.updateButtons();
+            this.updateDebugState('currentStep', this.currentStep);
+        } else {
+            this.addDebugAction('Cannot go back - already at first step');
         }
     }
     

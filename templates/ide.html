@@ -1880,11 +1880,13 @@
             
             <div class="file-explorer" id="explorerTab">
                 <div class="explorer-header">
-                    <h3>Projects</h3>
-                    <div style="display: flex; gap: 8px;">
-                        <button class="btn-small btn-primary" onclick="showProjectWizard()">🚀 New</button>
-                        <button class="btn-small btn-secondary" onclick="showProjectManager()">📁 Manage</button>
-                        <button class="btn-small btn-primary" onclick="showSquadManager()">🤖 Squad</button>
+                    <div style="width: 100%;">
+                        <h3 style="margin: 0 0 10px 0;">Projects</h3>
+                        <div style="display: flex; gap: 8px; flex-wrap: wrap;">
+                            <button class="btn-small btn-primary" onclick="showProjectWizard()">🚀 New</button>
+                            <button class="btn-small btn-secondary" onclick="showProjectManager()">📁 Manage</button>
+                            <button class="btn-small btn-primary" onclick="showSquadManager()">🤖 Squad</button>
+                        </div>
                     </div>
                 </div>
                 <ul class="file-tree" id="fileTree">
