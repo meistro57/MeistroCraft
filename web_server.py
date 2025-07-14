@@ -1810,6 +1810,10 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
 
 async def handle_websocket_message(websocket: WebSocket, session_id: str, message: Dict[str, Any]):
     """Handle incoming WebSocket messages."""
+    # Initialize token tracking variables at function start to prevent scope errors
+    total_tokens = 0
+    cost = 0.0
+    
     message_type = message.get("type")
     
     if message_type == "chat":
@@ -1818,10 +1822,6 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
         context = message.get("context", None)
         
         try:
-            # Initialize token tracking variables
-            total_tokens = 0
-            cost = 0.0
-            
             # Ensure we have a MeistroCraft session
             meistrocraft_session_id = await session_manager.create_session(session_id)
             
@@ -1876,14 +1876,18 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                 }))
                 
                 # Execute with Claude
-                result = run_claude_task(
-                    task, 
-                    session_manager.config, 
-                    meistrocraft_session_id, 
-                    session_manager.session_manager, 
-                    project_folder,
-                    session_manager.token_tracker
-                )
+                try:
+                    result = run_claude_task(
+                        task, 
+                        session_manager.config, 
+                        meistrocraft_session_id, 
+                        session_manager.session_manager, 
+                        project_folder,
+                        session_manager.token_tracker
+                    )
+                except Exception as claude_error:
+                    print(f"Claude task execution failed: {claude_error}")
+                    result = {"success": False, "error": str(claude_error)}
                 
                 if result.get("success"):
                     # Stream the response

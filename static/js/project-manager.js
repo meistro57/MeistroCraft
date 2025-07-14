@@ -807,13 +807,7 @@ class ProjectManager {
         const project = this.projects.find(p => p.id === projectId);
         if (!project) return;
         
-        const confirmText = `DELETE ${project.name}`;
-        const userInput = prompt(
-            `⚠️ WARNING: This will permanently delete the project "${project.name}" and all its files.\n\n` +
-            `Type "${confirmText}" to confirm deletion:`
-        );
-        
-        if (userInput !== confirmText) return;
+        if (!confirm(`Are you sure you want to delete the project "${project.name}"?`)) return;
         
         try {
             this.showLoading();
