@@ -901,4 +901,4 @@ let projectWizard = null;
 // Initialize when DOM is ready
 document.addEventListener('DOMContentLoaded', () => {
     // Will be initialized by the main IDE when needed
-});`;
+});
