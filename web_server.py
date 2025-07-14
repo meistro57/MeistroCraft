@@ -1792,6 +1792,10 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
         context = message.get("context", None)
         
         try:
+            # Initialize token tracking variables
+            total_tokens = 0
+            cost = 0.0
+            
             # Ensure we have a MeistroCraft session
             meistrocraft_session_id = await session_manager.create_session(session_id)
             
