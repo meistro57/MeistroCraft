@@ -1450,6 +1450,7 @@ Happy coding! 🚀
             // API Configuration
             openaiKey: '',
             anthropicKey: '',
+            githubKey: '',
             defaultModel: 'gpt-4',
             
             // Editor Settings
@@ -1497,10 +1498,21 @@ Happy coding! 🚀
         }
         
         // Apply terminal settings
+        const terminalContainer = document.querySelector('.terminal-container');
         const terminalOutput = document.getElementById('terminalOutput');
+        const terminalInput = document.getElementById('terminalInput');
+        
+        if (terminalContainer) {
+            terminalContainer.style.fontFamily = this.settings.terminalFont;
+            terminalContainer.style.fontSize = this.settings.terminalFontSize + 'px';
+        }
         if (terminalOutput) {
             terminalOutput.style.fontFamily = this.settings.terminalFont;
             terminalOutput.style.fontSize = this.settings.terminalFontSize + 'px';
+        }
+        if (terminalInput) {
+            terminalInput.style.fontFamily = this.settings.terminalFont;
+            terminalInput.style.fontSize = this.settings.terminalFontSize + 'px';
         }
         
         // Update UI elements
@@ -1511,6 +1523,7 @@ Happy coding! 🚀
         // Update all form elements with current settings
         document.getElementById('openaiKey').value = this.settings.openaiKey;
         document.getElementById('anthropicKey').value = this.settings.anthropicKey;
+        document.getElementById('githubKey').value = this.settings.githubKey;
         document.getElementById('defaultModel').value = this.settings.defaultModel;
         
         document.getElementById('editorTheme').value = this.settings.editorTheme;
@@ -1538,18 +1551,41 @@ Happy coding! 🚀
         // Font size sliders
         document.getElementById('fontSize').addEventListener('input', (e) => {
             document.getElementById('fontSizeValue').textContent = e.target.value + 'px';
+            // Apply font size change immediately
+            this.settings.fontSize = parseInt(e.target.value);
+            if (this.editor) {
+                this.editor.updateOptions({
+                    fontSize: this.settings.fontSize
+                });
+            }
         });
         
         document.getElementById('terminalFontSize').addEventListener('input', (e) => {
             document.getElementById('terminalFontSizeValue').textContent = e.target.value + 'px';
+            // Apply terminal font size change immediately
+            this.settings.terminalFontSize = parseInt(e.target.value);
+            const terminalContainer = document.querySelector('.terminal-container');
+            const terminalOutput = document.getElementById('terminalOutput');
+            const terminalInput = document.getElementById('terminalInput');
+            
+            if (terminalContainer) {
+                terminalContainer.style.fontSize = this.settings.terminalFontSize + 'px';
+            }
+            if (terminalOutput) {
+                terminalOutput.style.fontSize = this.settings.terminalFontSize + 'px';
+            }
+            if (terminalInput) {
+                terminalInput.style.fontSize = this.settings.terminalFontSize + 'px';
+            }
         });
     }
     
-    saveSettings() {
+    async saveSettings() {
         // Collect all settings from UI
         this.settings = {
             openaiKey: document.getElementById('openaiKey').value,
             anthropicKey: document.getElementById('anthropicKey').value,
+            githubKey: document.getElementById('githubKey').value,
             defaultModel: document.getElementById('defaultModel').value,
             
             editorTheme: document.getElementById('editorTheme').value,
@@ -1573,6 +1609,49 @@ Happy coding! 🚀
         
         // Save to localStorage
         localStorage.setItem('meistrocraft-settings', JSON.stringify(this.settings));
+        
+        // Save API configuration to backend if any API keys are provided
+        const apiConfig = {};
+        if (this.settings.openaiKey && this.settings.openaiKey.trim() !== '') {
+            apiConfig.openai_api_key = this.settings.openaiKey;
+        }
+        if (this.settings.anthropicKey && this.settings.anthropicKey.trim() !== '') {
+            apiConfig.anthropic_api_key = this.settings.anthropicKey;
+        }
+        if (this.settings.githubKey && this.settings.githubKey.trim() !== '') {
+            apiConfig.github_api_key = this.settings.githubKey;
+        }
+        if (this.settings.defaultModel) {
+            if (this.settings.defaultModel.startsWith('gpt-')) {
+                apiConfig.openai_model = this.settings.defaultModel;
+            } else if (this.settings.defaultModel.startsWith('claude-')) {
+                apiConfig.claude_model = this.settings.defaultModel;
+            }
+        }
+        
+        // Save API config to backend if we have any API keys
+        if (Object.keys(apiConfig).length > 0) {
+            try {
+                const response = await fetch('/api/config', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json'
+                    },
+                    body: JSON.stringify(apiConfig)
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                console.log('API configuration saved:', result);
+            } catch (error) {
+                console.error('Error saving API configuration:', error);
+                this.addChatMessage('system', `Error saving API configuration: ${error.message}`);
+                return; // Don't show success if API config failed
+            }
+        }
         
         // Apply settings immediately
         this.applySettings();
@@ -1953,6 +2032,19 @@ Happy coding! 🚀
                 })
             });
             
+            if (!response.ok) {
+                // Handle HTTP error responses
+                let errorMessage = `HTTP ${response.status}`;
+                try {
+                    const errorData = await response.json();
+                    errorMessage = errorData.detail || errorData.message || errorMessage;
+                } catch (e) {
+                    // If we can't parse JSON, use status text
+                    errorMessage = response.statusText || errorMessage;
+                }
+                throw new Error(errorMessage);
+            }
+            
             const result = await response.json();
             
             if (result.status === 'valid') {
@@ -1962,7 +2054,8 @@ Happy coding! 🚀
             } else {
                 indicatorElement.className = 'status-indicator status-invalid';
                 textElement.textContent = 'Invalid';
-                this.showNotification('error', `${provider} API key is invalid: ${result.message}`);
+                const errorMessage = result.message || 'Unknown error';
+                this.showNotification('error', `${provider} API key is invalid: ${errorMessage}`);
             }
         } catch (error) {
             indicatorElement.className = 'status-indicator status-invalid';
@@ -2046,6 +2139,8 @@ Happy coding! 🚀
                     if (config.openai.model) {
                         document.getElementById('defaultModel').value = config.openai.model;
                     }
+                    // Clear the input since it's already configured
+                    document.getElementById('openaiKey').value = '';
                 } else {
                     document.getElementById('openaiKey').placeholder = 'sk-...';
                     this.updateAPIStatus('openai', 'invalid', 'Not Set');
@@ -2054,6 +2149,8 @@ Happy coding! 🚀
                 if (config.anthropic?.configured) {
                     document.getElementById('anthropicKey').placeholder = 'sk-ant-...(configured)';
                     this.updateAPIStatus('anthropic', 'valid', 'Configured');
+                    // Clear the input since it's already configured
+                    document.getElementById('anthropicKey').value = '';
                 } else {
                     document.getElementById('anthropicKey').placeholder = 'sk-ant-...';
                     this.updateAPIStatus('anthropic', 'invalid', 'Not Set');
@@ -2062,6 +2159,8 @@ Happy coding! 🚀
                 if (config.github?.configured) {
                     document.getElementById('githubKey').placeholder = 'ghp_...(configured)';
                     this.updateAPIStatus('github', 'valid', 'Configured');
+                    // Clear the input since it's already configured
+                    document.getElementById('githubKey').value = '';
                 } else {
                     document.getElementById('githubKey').placeholder = 'ghp_...';
                     this.updateAPIStatus('github', 'invalid', 'Not Set');

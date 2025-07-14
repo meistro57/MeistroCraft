@@ -44,6 +44,19 @@ def load_config(config_path: str = "config/config.json") -> Dict[str, Any]:
         print(f"Invalid JSON in config file: {e}")
         sys.exit(1)
 
+def save_config(config: Dict[str, Any], config_path: str = "config/config.json") -> None:
+    """Save configuration to JSON file."""
+    try:
+        # Ensure config directory exists
+        os.makedirs(os.path.dirname(config_path), exist_ok=True)
+        
+        with open(config_path, 'w') as f:
+            json.dump(config, f, indent=4)
+        print(f"Configuration saved to {config_path}")
+    except Exception as e:
+        print(f"Error saving config: {e}")
+        raise
+
 def setup_environment(config: Dict[str, Any]) -> None:
     """Set up environment variables for API keys."""
     if config.get("anthropic_api_key") and config["anthropic_api_key"] != "<YOUR_ANTHROPIC_API_KEY>":

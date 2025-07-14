@@ -29,7 +29,7 @@ from interactive_ui import InteractiveSession
 from task_queue import get_task_queue, TaskPriority, TaskStatus
 from workspace_manager import WorkspaceManager
 from token_tracker import TokenTracker
-from main import SessionManager, load_config, setup_environment, generate_task_with_gpt4, run_claude_task
+from main import SessionManager, load_config, save_config, setup_environment, generate_task_with_gpt4, run_claude_task
 from claude_squad_bridge import squad_bridge, SquadAgentType, SquadSession
 
 app = FastAPI(
@@ -282,7 +282,7 @@ async def get_api_config():
             }
         }
         
-        if session_manager.config:
+        if session_manager.config and isinstance(session_manager.config, dict):
             # Check OpenAI configuration
             if session_manager.config.get("openai_api_key"):
                 config_status["openai"]["configured"] = True
@@ -301,6 +301,57 @@ async def get_api_config():
                 config_status["github"]["status"] = "configured"
         
         return config_status
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+@app.post("/api/config")
+async def save_api_config(request: Request):
+    """Save API configuration."""
+    try:
+        body = await request.json()
+        
+        # Load current config
+        try:
+            current_config = load_config()
+        except:
+            # If config doesn't exist, create a new one
+            current_config = {
+                "anthropic_api_key": "<YOUR_ANTHROPIC_API_KEY>",
+                "openai_api_key": "<YOUR_OPENAI_API_KEY>",
+                "github_api_key": "<YOUR_GITHUB_API_KEY>",
+                "claude_model": "claude-3-sonnet-20240229",
+                "openai_model": "gpt-4",
+                "max_tokens": 4000,
+                "max_context_length": 16000,
+                "usage_limits": {
+                    "daily_limit": 5.0,
+                    "monthly_limit": 50.0
+                }
+            }
+        
+        # Update config with new values
+        if body.get("openai_api_key"):
+            current_config["openai_api_key"] = body["openai_api_key"]
+        if body.get("anthropic_api_key"):
+            current_config["anthropic_api_key"] = body["anthropic_api_key"]
+        if body.get("github_api_key"):
+            current_config["github_api_key"] = body["github_api_key"]
+        if body.get("openai_model"):
+            current_config["openai_model"] = body["openai_model"]
+        if body.get("claude_model"):
+            current_config["claude_model"] = body["claude_model"]
+        
+        # Save config to file
+        save_config(current_config)
+        
+        # Update session manager config
+        session_manager.config = current_config
+        setup_environment(current_config)
+        
+        return {
+            "status": "success",
+            "message": "API configuration saved successfully"
+        }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
@@ -326,13 +377,27 @@ async def test_api_key(request: Request):
                 response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
                 
                 if response.status_code == 200:
-                    user_data = response.json()
-                    return {
-                        "provider": provider,
-                        "status": "valid",
-                        "message": f"Authenticated as {user_data.get('login')}",
-                        "username": user_data.get("login")
-                    }
+                    try:
+                        user_data = response.json()
+                        # Ensure user_data is a dict, not a string
+                        if isinstance(user_data, str):
+                            return {
+                                "provider": provider,
+                                "status": "invalid",
+                                "message": f"Unexpected response format: {user_data}"
+                            }
+                        return {
+                            "provider": provider,
+                            "status": "valid",
+                            "message": f"Authenticated as {user_data.get('login', 'Unknown user')}",
+                            "username": user_data.get("login", "Unknown")
+                        }
+                    except Exception as json_error:
+                        return {
+                            "provider": provider,
+                            "status": "invalid",
+                            "message": f"Failed to parse GitHub response: {str(json_error)}"
+                        }
                 else:
                     return {
                         "provider": provider,
@@ -417,7 +482,7 @@ async def test_api_key(request: Request):
 async def get_github_repositories():
     """Get user's GitHub repositories."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         from github_client import GitHubClient
@@ -435,7 +500,7 @@ async def get_github_repositories():
 async def create_github_repository(request: Request):
     """Create a new GitHub repository."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         body = await request.json()
@@ -458,7 +523,7 @@ async def create_github_repository(request: Request):
 async def fork_github_repository(owner: str, repo: str):
     """Fork a GitHub repository."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         from github_client import GitHubClient
@@ -473,7 +538,7 @@ async def fork_github_repository(owner: str, repo: str):
 async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
     """Get contents of a GitHub repository directory."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         from github_client import GitHubClient
@@ -499,7 +564,7 @@ async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
 async def get_github_file(owner: str, repo: str, path: str):
     """Get a specific file from GitHub repository."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         from github_client import GitHubClient
@@ -514,7 +579,7 @@ async def get_github_file(owner: str, repo: str, path: str):
 async def create_github_file(owner: str, repo: str, request: Request):
     """Create a new file in GitHub repository."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         body = await request.json()
@@ -538,7 +603,7 @@ async def create_github_file(owner: str, repo: str, request: Request):
 async def update_github_file(owner: str, repo: str, request: Request):
     """Update an existing file in GitHub repository."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         body = await request.json()
@@ -563,7 +628,7 @@ async def update_github_file(owner: str, repo: str, request: Request):
 async def sync_project_to_github(request: Request):
     """Sync current project to GitHub repository."""
     try:
-        if not session_manager.config or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
         
         body = await request.json()
@@ -611,8 +676,8 @@ async def sync_project_to_github(request: Request):
                             "action": "updated",
                             "sha": result["content"]["sha"]
                         })
-                    except:
-                        # File doesn't exist, create it
+                    except Exception:
+                        # File doesn't exist or other error, create it
                         result = client.create_file(
                             owner, repo, relative_path, content,
                             f"Sync: Create {relative_path}", branch
@@ -1392,7 +1457,7 @@ def detect_project_type(project_path: Path) -> str:
                     return "web-app"
                 if "express" in str(package_data.get("dependencies", {})):
                     return "api-service"
-        except:
+        except (FileNotFoundError, json.JSONDecodeError, KeyError):
             pass
         return "web-app"
     
