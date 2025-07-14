@@ -387,46 +387,53 @@ class ProjectWizard {
     }
     
     setupEventListeners() {
-        // Language change listener to update framework options
-        document.addEventListener('change', (e) => {
-            if (e.target.id === 'primaryLanguage') {
-                this.updateFrameworkOptions(e.target.value);
-            }
-            if (e.target.id === 'projectType') {
-                this.updateCoreFeatures(e.target.value);
-            }
-        });
+        // Store reference to this for event handlers
+        const wizard = this;
         
-        // Checkbox styling
-        document.addEventListener('change', (e) => {
-            if (e.target.type === 'checkbox') {
-                const label = e.target.closest('.form-checkbox');
-                if (label) {
-                    label.classList.toggle('selected', e.target.checked);
+        // Use setTimeout to ensure DOM is ready after wizard HTML is inserted
+        setTimeout(() => {
+            const wizardContainer = document.getElementById('projectWizard');
+            if (!wizardContainer) return;
+            
+            // Language change listener to update framework options
+            wizardContainer.addEventListener('change', (e) => {
+                if (e.target.id === 'primaryLanguage') {
+                    wizard.updateFrameworkOptions(e.target.value);
                 }
-            }
-        });
-        
-        // Feature card clicks
-        document.addEventListener('click', (e) => {
-            if (e.target.closest('.feature-card')) {
-                const card = e.target.closest('.feature-card');
-                const checkbox = card.querySelector('input[type="checkbox"]');
-                const radio = card.querySelector('input[type="radio"]');
+                if (e.target.id === 'projectType') {
+                    wizard.updateCoreFeatures(e.target.value);
+                }
                 
-                if (checkbox) {
-                    checkbox.checked = !checkbox.checked;
-                    card.classList.toggle('selected', checkbox.checked);
-                } else if (radio) {
-                    // Handle radio button selection for templates
-                    const allCards = document.querySelectorAll('.feature-card[data-template]');
-                    allCards.forEach(c => c.classList.remove('selected'));
-                    radio.checked = true;
-                    card.classList.add('selected');
-                    this.updateTemplateBenefits(radio.value);
+                // Checkbox styling
+                if (e.target.type === 'checkbox') {
+                    const label = e.target.closest('.form-checkbox');
+                    if (label) {
+                        label.classList.toggle('selected', e.target.checked);
+                    }
                 }
-            }
-        });
+            });
+            
+            // Feature card clicks
+            wizardContainer.addEventListener('click', (e) => {
+                if (e.target.closest('.feature-card')) {
+                    const card = e.target.closest('.feature-card');
+                    const checkbox = card.querySelector('input[type="checkbox"]');
+                    const radio = card.querySelector('input[type="radio"]');
+                    
+                    if (checkbox) {
+                        checkbox.checked = !checkbox.checked;
+                        card.classList.toggle('selected', checkbox.checked);
+                    } else if (radio) {
+                        // Handle radio button selection for templates
+                        const allCards = wizardContainer.querySelectorAll('.feature-card[data-template]');
+                        allCards.forEach(c => c.classList.remove('selected'));
+                        radio.checked = true;
+                        card.classList.add('selected');
+                        wizard.updateTemplateBenefits(radio.value);
+                    }
+                }
+            });
+        }, 100);
     }
     
     populateFormOptions() {
@@ -639,11 +646,19 @@ class ProjectWizard {
     }
     
     validateCurrentStep() {
+        console.log(`Validating step ${this.currentStep}`);
         const currentStepElement = document.querySelector(`.wizard-step[data-step="${this.currentStep}"]`);
+        if (!currentStepElement) {
+            console.error('Current step element not found!');
+            return false;
+        }
+        
         const requiredFields = currentStepElement.querySelectorAll('[required]');
+        console.log(`Found ${requiredFields.length} required fields`);
         
         for (let field of requiredFields) {
             if (!field.value.trim()) {
+                console.log('Required field validation failed:', field);
                 field.focus();
                 field.style.borderColor = '#ff4444';
                 setTimeout(() => field.style.borderColor = '', 3000);
@@ -651,6 +666,14 @@ class ProjectWizard {
             }
         }
         
+        // For step 0 (template selection), check if a template is selected
+        if (this.currentStep === 0) {
+            const selectedTemplate = document.querySelector('input[name="template"]:checked');
+            console.log('Selected template:', selectedTemplate?.value);
+            return selectedTemplate !== null;
+        }
+        
+        console.log(`Step ${this.currentStep} validation passed`);
         return true;
     }
     
