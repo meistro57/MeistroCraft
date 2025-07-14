@@ -35,22 +35,99 @@ class ProjectWizard {
     createWizardHTML() {
         const wizardHTML = `
             <style>
+                /* Wizard header layout */
+                .wizard-header {
+                    display: grid;
+                    grid-template-columns: 1fr auto 1fr;
+                    align-items: center;
+                    gap: 10px;
+                    padding: 15px 20px;
+                    border-bottom: 1px solid #333;
+                    background: #2d2d30;
+                }
+                
+                .wizard-header-left {
+                    display: flex;
+                    justify-content: flex-start;
+                }
+                
+                .wizard-header-center {
+                    display: flex;
+                    justify-content: center;
+                }
+                
+                .wizard-header-right {
+                    display: flex;
+                    justify-content: flex-end;
+                }
+                
+                .wizard-title {
+                    margin: 0;
+                    font-size: 18px;
+                    color: #fff;
+                }
+                
                 .wizard-status-indicators {
                     display: flex;
-                    gap: 15px;
+                    gap: 8px;
                     align-items: center;
                 }
+                
                 .status-indicator {
                     display: flex;
                     align-items: center;
-                    gap: 5px;
-                    padding: 4px 8px;
+                    gap: 4px;
+                    padding: 3px 6px;
                     background: rgba(255,255,255,0.1);
                     border-radius: 4px;
+                    font-size: 11px;
+                    white-space: nowrap;
+                }
+                
+                .status-icon {
                     font-size: 12px;
                 }
-                .status-icon {
-                    font-size: 14px;
+                
+                .wizard-close {
+                    background: none;
+                    border: none;
+                    color: #fff;
+                    font-size: 24px;
+                    cursor: pointer;
+                    padding: 5px;
+                    border-radius: 4px;
+                }
+                
+                .wizard-close:hover {
+                    background: rgba(255,255,255,0.1);
+                }
+                
+                /* Responsive header for smaller screens */
+                @media (max-width: 768px) {
+                    .wizard-header {
+                        grid-template-columns: 1fr auto;
+                        gap: 5px;
+                    }
+                    
+                    .wizard-header-center {
+                        order: 3;
+                        grid-column: 1 / -1;
+                        margin-top: 10px;
+                        justify-content: center;
+                    }
+                    
+                    .wizard-status-indicators {
+                        gap: 5px;
+                    }
+                    
+                    .status-indicator {
+                        font-size: 10px;
+                        padding: 2px 4px;
+                    }
+                    
+                    .wizard-title {
+                        font-size: 16px;
+                    }
                 }
                 .wizard-debug-panel {
                     background: #f8f9fa;
@@ -166,18 +243,24 @@ class ProjectWizard {
             <div id="projectWizard" class="wizard-overlay">
                 <div class="wizard-container">
                     <div class="wizard-header">
-                        <h2 class="wizard-title">🚀 New Project Wizard</h2>
-                        <div class="wizard-status-indicators">
-                            <div class="status-indicator" id="validationStatus">
-                                <span class="status-icon">⏳</span>
-                                <span class="status-text" id="validationText">Ready</span>
-                            </div>
-                            <div class="status-indicator" id="stepStatus">
-                                <span class="status-icon">📋</span>
-                                <span class="status-text" id="stepText">Step 1 of 6</span>
+                        <div class="wizard-header-left">
+                            <h2 class="wizard-title">🚀 New Project Wizard</h2>
+                        </div>
+                        <div class="wizard-header-center">
+                            <div class="wizard-status-indicators">
+                                <div class="status-indicator" id="validationStatus">
+                                    <span class="status-icon">⏳</span>
+                                    <span class="status-text" id="validationText">Ready</span>
+                                </div>
+                                <div class="status-indicator" id="stepStatus">
+                                    <span class="status-icon">📋</span>
+                                    <span class="status-text" id="stepText">Step 1 of 6</span>
+                                </div>
                             </div>
                         </div>
-                        <button class="wizard-close" id="wizardCloseBtn">&times;</button>
+                        <div class="wizard-header-right">
+                            <button class="wizard-close" id="wizardCloseBtn">&times;</button>
+                        </div>
                     </div>
                     
                     <div class="wizard-progress">
