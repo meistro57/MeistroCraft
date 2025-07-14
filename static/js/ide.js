@@ -258,6 +258,11 @@ Happy coding! 🚀
                     // Token usage info logged silently
                     console.log(`Tokens used: ${message.total_tokens} (Cost: $${message.cost?.toFixed(4) || '0.0000'})`);
                 }
+                
+                // Refresh task queue to show any new tasks
+                setTimeout(() => {
+                    this.refreshTasks();
+                }, 1000);
                 break;
                 
             case 'chat_response':
@@ -326,6 +331,16 @@ Happy coding! 🚀
         
         // Setup tab event listeners
         this.setupTabListeners();
+        
+        // Load initial task queue
+        setTimeout(() => {
+            this.refreshTasks();
+            
+            // Set up periodic task refresh every 30 seconds
+            setInterval(() => {
+                this.refreshTasks();
+            }, 30000);
+        }, 2000); // Wait for websocket connection to be established
         
         // Setup existing welcome tab functionality
         this.setupExistingTabs();
@@ -1198,6 +1213,17 @@ Happy coding! 🚀
         if (!taskList) return;
         
         taskList.innerHTML = '';
+        
+        if (tasks.length === 0) {
+            taskList.innerHTML = `
+                <div class="task-item empty-state">
+                    <span class="task-icon">💤</span>
+                    <span class="task-name">No recent tasks</span>
+                    <span class="task-time">Start a conversation to see tasks here</span>
+                </div>
+            `;
+            return;
+        }
         
         tasks.forEach(task => {
             const taskItem = document.createElement('div');
