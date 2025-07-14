@@ -892,6 +892,9 @@ Please create a complete, functional project that meets these specifications. St
     }
 }
 
+// Expose to global window object
+window.ProjectWizard = ProjectWizard;
+
 // Global instance
 let projectWizard = null;
 

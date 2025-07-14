@@ -460,6 +460,9 @@ class SquadManager {
     }
 }
 
+// Expose to global window object
+window.SquadManager = SquadManager;
+
 // Global instance
 let squadManager = null;
 
