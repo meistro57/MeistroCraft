@@ -2122,6 +2122,9 @@ Add development guidelines here.
     elif message_type == "get_tasks":
         # Get task queue status
         try:
+            # Ensure we have a MeistroCraft session
+            meistrocraft_session_id = await session_manager.create_session(session_id)
+            
             # Get real task data from session
             session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
             tasks = []
