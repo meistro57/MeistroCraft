@@ -17,6 +17,12 @@ class ProjectWizard {
             deployment: {}
         };
         
+        // Debug tracking
+        this.debugActions = [];
+        this.debugState = {};
+        this.debugValidation = {};
+        this.debugVisible = false;
+        
         this.init();
     }
     
@@ -28,10 +34,89 @@ class ProjectWizard {
     
     createWizardHTML() {
         const wizardHTML = `
+            <style>
+                .wizard-status-indicators {
+                    display: flex;
+                    gap: 15px;
+                    align-items: center;
+                }
+                .status-indicator {
+                    display: flex;
+                    align-items: center;
+                    gap: 5px;
+                    padding: 4px 8px;
+                    background: rgba(255,255,255,0.1);
+                    border-radius: 4px;
+                    font-size: 12px;
+                }
+                .status-icon {
+                    font-size: 14px;
+                }
+                .wizard-debug-panel {
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    border-radius: 6px;
+                    margin: 15px 0;
+                    padding: 10px;
+                }
+                .debug-header {
+                    display: flex;
+                    justify-content: space-between;
+                    align-items: center;
+                    margin-bottom: 10px;
+                }
+                .debug-header h4 {
+                    margin: 0;
+                    font-size: 14px;
+                    color: #495057;
+                }
+                .debug-toggle {
+                    background: #007bff;
+                    color: white;
+                    border: none;
+                    padding: 4px 8px;
+                    border-radius: 4px;
+                    font-size: 11px;
+                    cursor: pointer;
+                }
+                .debug-content {
+                    font-size: 11px;
+                    color: #6c757d;
+                }
+                .debug-section {
+                    margin-bottom: 10px;
+                }
+                .debug-section h5 {
+                    margin: 0 0 5px 0;
+                    font-size: 12px;
+                    color: #495057;
+                    font-weight: 600;
+                }
+                .debug-section ul {
+                    margin: 0;
+                    padding-left: 15px;
+                    max-height: 100px;
+                    overflow-y: auto;
+                }
+                .debug-section li {
+                    margin-bottom: 2px;
+                    line-height: 1.3;
+                }
+            </style>
             <div id="projectWizard" class="wizard-overlay">
                 <div class="wizard-container">
                     <div class="wizard-header">
                         <h2 class="wizard-title">🚀 New Project Wizard</h2>
+                        <div class="wizard-status-indicators">
+                            <div class="status-indicator" id="validationStatus">
+                                <span class="status-icon">⏳</span>
+                                <span class="status-text" id="validationText">Ready</span>
+                            </div>
+                            <div class="status-indicator" id="stepStatus">
+                                <span class="status-icon">📋</span>
+                                <span class="status-text" id="stepText">Step 1 of 6</span>
+                            </div>
+                        </div>
                         <button class="wizard-close" onclick="projectWizard.close()">&times;</button>
                     </div>
                     
@@ -51,6 +136,33 @@ class ProjectWizard {
                     
                     <div class="wizard-content">
                         ${this.createStepHTML()}
+                    </div>
+                    
+                    <div class="wizard-debug-panel" id="debugPanel">
+                        <div class="debug-header">
+                            <h4>🔍 Debug Status</h4>
+                            <button class="debug-toggle" onclick="projectWizard.toggleDebug()" id="debugToggle">Show Details</button>
+                        </div>
+                        <div class="debug-content" id="debugContent" style="display: none;">
+                            <div class="debug-section">
+                                <h5>Current State:</h5>
+                                <ul id="debugStateList">
+                                    <li>Wizard initialized</li>
+                                </ul>
+                            </div>
+                            <div class="debug-section">
+                                <h5>Recent Actions:</h5>
+                                <ul id="debugActionsList">
+                                    <li>Wizard opened</li>
+                                </ul>
+                            </div>
+                            <div class="debug-section">
+                                <h5>Validation Results:</h5>
+                                <ul id="debugValidationList">
+                                    <li>No validation performed yet</li>
+                                </ul>
+                            </div>
+                        </div>
                     </div>
                     
                     <div class="wizard-actions">
@@ -429,6 +541,8 @@ class ProjectWizard {
                         allCards.forEach(c => c.classList.remove('selected'));
                         radio.checked = true;
                         card.classList.add('selected');
+                        wizard.addDebugAction(`Template selected: ${radio.value}`);
+                        wizard.updateDebugState('selectedTemplate', radio.value);
                         wizard.updateTemplateBenefits(radio.value);
                     }
                 }
@@ -438,6 +552,100 @@ class ProjectWizard {
     
     populateFormOptions() {
         // Will be called when showing the wizard
+    }
+    
+    // Status tracking methods
+    addDebugAction(action) {
+        const timestamp = new Date().toLocaleTimeString();
+        this.debugActions.unshift(`[${timestamp}] ${action}`);
+        if (this.debugActions.length > 10) this.debugActions.pop();
+        this.updateDebugDisplay();
+        console.log(`ProjectWizard: ${action}`);
+    }
+    
+    updateDebugState(key, value) {
+        this.debugState[key] = value;
+        this.updateDebugDisplay();
+    }
+    
+    updateDebugValidation(result, details = '') {
+        const timestamp = new Date().toLocaleTimeString();
+        this.debugValidation = {
+            result,
+            details,
+            timestamp,
+            step: this.currentStep
+        };
+        this.updateDebugDisplay();
+    }
+    
+    updateStatusIndicators() {
+        const validationIcon = document.getElementById('validationStatus')?.querySelector('.status-icon');
+        const validationText = document.getElementById('validationText');
+        const stepText = document.getElementById('stepText');
+        
+        if (stepText) {
+            stepText.textContent = `Step ${this.currentStep + 1} of ${this.maxSteps}`;
+        }
+        
+        if (validationIcon && validationText) {
+            if (this.debugValidation.result === true) {
+                validationIcon.textContent = '✅';
+                validationText.textContent = 'Valid';
+            } else if (this.debugValidation.result === false) {
+                validationIcon.textContent = '❌';
+                validationText.textContent = 'Invalid';
+            } else {
+                validationIcon.textContent = '⏳';
+                validationText.textContent = 'Ready';
+            }
+        }
+    }
+    
+    updateDebugDisplay() {
+        const stateList = document.getElementById('debugStateList');
+        const actionsList = document.getElementById('debugActionsList');
+        const validationList = document.getElementById('debugValidationList');
+        
+        if (stateList) {
+            const stateItems = Object.entries(this.debugState).map(([key, value]) => 
+                `<li><strong>${key}:</strong> ${JSON.stringify(value)}</li>`
+            ).join('');
+            stateList.innerHTML = stateItems || '<li>No state data</li>';
+        }
+        
+        if (actionsList) {
+            const actionItems = this.debugActions.map(action => `<li>${action}</li>`).join('');
+            actionsList.innerHTML = actionItems || '<li>No actions yet</li>';
+        }
+        
+        if (validationList) {
+            if (this.debugValidation.timestamp) {
+                validationList.innerHTML = `
+                    <li><strong>Result:</strong> ${this.debugValidation.result ? '✅ Valid' : '❌ Invalid'}</li>
+                    <li><strong>Step:</strong> ${this.debugValidation.step}</li>
+                    <li><strong>Time:</strong> ${this.debugValidation.timestamp}</li>
+                    <li><strong>Details:</strong> ${this.debugValidation.details || 'None'}</li>
+                `;
+            } else {
+                validationList.innerHTML = '<li>No validation performed yet</li>';
+            }
+        }
+        
+        this.updateStatusIndicators();
+    }
+    
+    toggleDebug() {
+        this.debugVisible = !this.debugVisible;
+        const debugContent = document.getElementById('debugContent');
+        const debugToggle = document.getElementById('debugToggle');
+        
+        if (debugContent && debugToggle) {
+            debugContent.style.display = this.debugVisible ? 'block' : 'none';
+            debugToggle.textContent = this.debugVisible ? 'Hide Details' : 'Show Details';
+        }
+        
+        this.addDebugAction(`Debug panel ${this.debugVisible ? 'opened' : 'closed'}`);
     }
     
     updateTemplateBenefits(template) {
@@ -600,6 +808,12 @@ class ProjectWizard {
         document.getElementById('projectWizard').classList.add('show');
         this.updateProgress();
         
+        // Initialize debug display
+        this.addDebugAction('Wizard opened');
+        this.updateDebugState('currentStep', this.currentStep);
+        this.updateDebugState('maxSteps', this.maxSteps);
+        this.updateStatusIndicators();
+        
         // Initialize template benefits for default selection
         setTimeout(() => {
             this.updateTemplateBenefits('blank');
@@ -618,21 +832,31 @@ class ProjectWizard {
     }
     
     nextStep() {
+        this.addDebugAction(`Attempting to advance from step ${this.currentStep + 1}`);
+        this.updateDebugState('currentStep', this.currentStep);
+        
         if (this.validateCurrentStep()) {
+            this.addDebugAction(`Step ${this.currentStep + 1} validation passed`);
             this.saveCurrentStepData();
             
             if (this.currentStep < this.maxSteps - 1) {
                 this.currentStep++;
+                this.addDebugAction(`Advanced to step ${this.currentStep + 1}`);
                 this.updateStepVisibility();
                 this.updateProgress();
                 this.updateButtons();
+                this.updateDebugState('currentStep', this.currentStep);
                 
                 if (this.currentStep === this.maxSteps - 1) {
+                    this.addDebugAction('Generating project summary for final step');
                     this.generateProjectSummary();
                 }
             } else {
+                this.addDebugAction('Starting project generation');
                 this.generateProject();
             }
+        } else {
+            this.addDebugAction(`Step ${this.currentStep + 1} validation failed`);
         }
     }
     
@@ -646,19 +870,20 @@ class ProjectWizard {
     }
     
     validateCurrentStep() {
-        console.log(`Validating step ${this.currentStep}`);
+        this.addDebugAction(`Validating step ${this.currentStep + 1}`);
+        
         const currentStepElement = document.querySelector(`.wizard-step[data-step="${this.currentStep}"]`);
         if (!currentStepElement) {
-            console.error('Current step element not found!');
+            this.updateDebugValidation(false, 'Current step element not found');
             return false;
         }
         
         const requiredFields = currentStepElement.querySelectorAll('[required]');
-        console.log(`Found ${requiredFields.length} required fields`);
+        this.updateDebugState('requiredFieldsCount', requiredFields.length);
         
         for (let field of requiredFields) {
             if (!field.value.trim()) {
-                console.log('Required field validation failed:', field);
+                this.updateDebugValidation(false, `Required field empty: ${field.name || field.id || field.type}`);
                 field.focus();
                 field.style.borderColor = '#ff4444';
                 setTimeout(() => field.style.borderColor = '', 3000);
@@ -669,11 +894,18 @@ class ProjectWizard {
         // For step 0 (template selection), check if a template is selected
         if (this.currentStep === 0) {
             const selectedTemplate = document.querySelector('input[name="template"]:checked');
-            console.log('Selected template:', selectedTemplate?.value);
-            return selectedTemplate !== null;
+            this.updateDebugState('selectedTemplate', selectedTemplate?.value || 'none');
+            
+            if (!selectedTemplate) {
+                this.updateDebugValidation(false, 'No template selected');
+                return false;
+            }
+            
+            this.updateDebugValidation(true, `Template selected: ${selectedTemplate.value}`);
+            return true;
         }
         
-        console.log(`Step ${this.currentStep} validation passed`);
+        this.updateDebugValidation(true, 'All validations passed');
         return true;
     }
     
