@@ -524,6 +524,11 @@ def run_claude_task(task: Dict[str, Any], config: Dict[str, Any], session_id: Op
     Returns:
         Dictionary with result and metadata
     """
+    print(f"🔮 [Claude] Starting task execution...")
+    print(f"🔮 [Claude] Task: {json.dumps(task, indent=2)}")
+    print(f"🔮 [Claude] Session ID: {session_id}")
+    print(f"🔮 [Claude] Project folder: {project_folder}")
+    
     # Compose the prompt for Claude based on the task
     if task.get("filename"):
         prompt_text = f"Please apply the following instruction.\nFile: {task['filename']}\nInstruction: {task['instruction']}"
@@ -532,11 +537,14 @@ def run_claude_task(task: Dict[str, Any], config: Dict[str, Any], session_id: Op
     else:
         prompt_text = task["instruction"]
     
+    print(f"🔮 [Claude] Prompt text: {prompt_text[:300]}...")
+    
     # Add session context if available
     if session_id and session_manager:
         session_context = session_manager.get_session_context(session_id)
         if session_context:
             prompt_text += session_context
+            print(f"🔮 [Claude] Added session context: {session_context[:100]}...")
     
     # Build the CLI command
     cli_cmd = [
@@ -565,15 +573,25 @@ def run_claude_task(task: Dict[str, Any], config: Dict[str, Any], session_id: Op
     permission_mode = config.get("permission_mode", "acceptEdits")
     cli_cmd += ["--permission-mode", permission_mode]
     
-    print(f"Running Claude CLI: {' '.join(cli_cmd[:3])} [additional flags omitted]")
+    print(f"🔮 [Claude] Running CLI command: {' '.join(cli_cmd[:3])} [additional flags omitted]")
+    print(f"🔮 [Claude] Working directory: {working_dir}")
+    print(f"🔮 [Claude] Allowed tools: {allowed_tools}")
+    print(f"🔮 [Claude] Permission mode: {permission_mode}")
     
     try:
         # Run the Claude CLI subprocess
+        print(f"🔮 [Claude] Executing subprocess with 300s timeout...")
         result = subprocess.run(cli_cmd, capture_output=True, text=True, timeout=300, cwd=working_dir)
         
+        print(f"🔮 [Claude] Subprocess completed with exit code: {result.returncode}")
+        print(f"🔮 [Claude] stdout length: {len(result.stdout)} chars")
+        print(f"🔮 [Claude] stderr length: {len(result.stderr)} chars")
+        
         if result.returncode != 0:
-            print(f"Claude CLI error (exit code {result.returncode}):")
-            print(result.stderr)
+            print(f"❌ [Claude] CLI error (exit code {result.returncode}):")
+            print(f"❌ [Claude] stderr: {result.stderr}")
+            if result.stdout:
+                print(f"❌ [Claude] stdout: {result.stdout}")
             return {
                 "success": False,
                 "error": result.stderr,
@@ -582,13 +600,17 @@ def run_claude_task(task: Dict[str, Any], config: Dict[str, Any], session_id: Op
         
         # Parse JSON output
         try:
+            print(f"🔮 [Claude] Parsing JSON output...")
             response = json.loads(result.stdout)
-        except json.JSONDecodeError:
-            print("Failed to parse Claude output as JSON:")
-            print(result.stdout)
+            print(f"🔮 [Claude] JSON parsed successfully")
+            print(f"🔮 [Claude] Response keys: {list(response.keys())}")
+            
+        except json.JSONDecodeError as e:
+            print(f"❌ [Claude] Failed to parse Claude output as JSON: {e}")
+            print(f"❌ [Claude] Raw stdout: {result.stdout}")
             return {
                 "success": False,
-                "error": "Invalid JSON output",
+                "error": f"Invalid JSON output: {e}",
                 "raw_output": result.stdout
             }
         
@@ -755,10 +777,16 @@ def _fallback_project_name(description: str) -> str:
 
 def generate_task_with_gpt4(user_request: str, config: Dict[str, Any], project_folder: Optional[str] = None, token_tracker: Optional[TokenTracker] = None, session_id: Optional[str] = None) -> Optional[Dict[str, Any]]:
     """Use GPT-4 to generate a task from user request."""
+    print(f"🤖 [GPT-4] Starting task generation...")
+    print(f"🤖 [GPT-4] User request: {user_request[:200]}...")
+    print(f"🤖 [GPT-4] Project folder: {project_folder}")
+    print(f"🤖 [GPT-4] Session ID: {session_id}")
+    
     if not OpenAI or not config.get("openai_api_key") or config["openai_api_key"] == "<YOUR_OPENAI_API_KEY>":
-        print("❌ OpenAI integration not available (missing API key or library)")
+        print("❌ [GPT-4] OpenAI integration not available (missing API key or library)")
         return None
     
+    print(f"🤖 [GPT-4] Using OpenAI API key: {config['openai_api_key'][:10]}...")
     client = OpenAI(api_key=config["openai_api_key"])
     
     system_prompt = """
@@ -796,21 +824,32 @@ Guidelines:
         if response.choices[0].message.function_call:
             task_args = json.loads(response.choices[0].message.function_call.arguments)
             
+            print(f"🤖 [GPT-4] Raw task generated: {json.dumps(task_args, indent=2)}")
+            
             # If we have a project folder, adjust the filename to be within that folder
             if project_folder and task_args.get("filename"):
                 filename = task_args["filename"]
+                print(f"🤖 [GPT-4] Original filename: {filename}")
                 # Don't modify if it's already a relative path within projects/
                 if not filename.startswith("projects/"):
                     task_args["filename"] = os.path.join(project_folder, filename)
+                    print(f"🤖 [GPT-4] Adjusted filename: {task_args['filename']}")
             
-            print(f"🎯 GPT-4 generated task: {task_args['action']} - {task_args['instruction'][:60]}...")
+            print(f"🎯 [GPT-4] Final task: {task_args['action']} - {task_args['instruction'][:100]}...")
+            if 'reasoning' in task_args:
+                print(f"💭 [GPT-4] Reasoning: {task_args['reasoning'][:200]}...")
+            
             return task_args
         else:
-            print("❌ GPT-4 did not generate a valid task")
+            print("❌ [GPT-4] Did not generate a valid task - no function call")
+            print(f"🤖 [GPT-4] Response content: {response.choices[0].message.content}")
             return None
             
     except Exception as e:
-        print(f"❌ Error calling GPT-4: {e}")
+        print(f"❌ [GPT-4] Error calling GPT-4: {e}")
+        print(f"❌ [GPT-4] Error type: {type(e).__name__}")
+        import traceback
+        print(f"❌ [GPT-4] Traceback: {traceback.format_exc()}")
         return None
 
 def create_project_readme(project_folder: str, project_description: str) -> None:

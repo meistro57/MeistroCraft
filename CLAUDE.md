@@ -1,145 +1,74 @@
-# MeistroCraft IDE - Technical Documentation for Claude
+# CLAUDE.md
 
-## Overview
-MeistroCraft is a comprehensive AI-powered development orchestrator that operates in multiple modes:
+This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-1. **🌐 Browser IDE**: Modern web-based interface with VS Code-style editing, real-time AI assistance, and session management
-2. **⚡ Command Line Interface**: Split terminal UI for interactive coding sessions with token tracking
-3. **🤖 Orchestration Engine**: Multi-agent system combining GPT-4 strategic planning with Claude Code CLI execution
-4. **🐙 GitHub Integration**: Complete workflow automation with PR/issue management and CI/CD pipeline integration
-5. **🧠 Self-Optimization**: Automatic performance analysis and intelligent code refinement
+## Architecture Overview
 
-## Architecture
+MeistroCraft is a multi-agent AI development orchestrator with dual interfaces:
 
-### Core Components
+### 🌐 Web IDE Mode (Primary Interface)
+- **Backend**: FastAPI server (`web_server.py`) with WebSocket handlers
+- **Frontend**: Vanilla JavaScript (`static/js/ide.js`) with Monaco Editor
+- **Template**: Jinja2 HTML template (`templates/ide.html`) with CSS Grid layout
 
-#### 🌐 Web IDE Components
+### ⚡ CLI Mode (Command Line Interface)
+- **Main Orchestrator**: `main.py` - coordinates GPT-4 planning + Claude execution
+- **Interactive UI**: `interactive_ui.py` - split terminal with Rich library
+- **Session Management**: Persistent sessions with context preservation
 
-1. **Backend (FastAPI)** - `web_server.py`
-   - WebSocket handlers for real-time communication
-   - File system API with security restrictions (projects folder only)
-   - Integration with existing MeistroCraft AI backend
-   - Session management with project folder sandboxing
-   - Auto-startup scripts with cross-platform support
+## Key Development Commands
 
-2. **Frontend (Vanilla JS)** - `static/js/ide.js`
-   - Monaco Editor integration for code editing
-   - Tab management system for multiple files
-   - WebSocket client for AI communication
-   - File explorer with tree navigation
+### Starting the Application
+```bash
+# Recommended: Auto-setup with venv
+python3 start_ide.py
 
-3. **UI Template** - `templates/ide.html`
-   - CSS Grid layout with resizable panels
-   - Dark theme VS Code-style interface
-   - Status bar with token tracking
+# Alternative startup scripts
+./start_ide.sh      # Linux/macOS
+start_ide.bat       # Windows
 
-#### ⚡ Command Line Components
-
-4. **Main Orchestrator** - `main.py`
-   - Multi-agent coordination between GPT-4 and Claude
-   - Session management and persistence
-   - Token tracking and cost management
-   - GitHub integration and workflow automation
-
-5. **Interactive UI** - `interactive_ui.py`
-   - Split terminal interface with Rich library
-   - Real-time token display and status monitoring
-   - Command palette and keyboard shortcuts
-
-6. **GitHub Integration** - `github_client.py`, `github_workflows.py`
-   - Complete GitHub API integration
-   - Automated PR/issue creation
-   - CI/CD pipeline monitoring
-   - Repository health analysis
-
-7. **Self-Optimization** - `self_optimizer.py`
-   - Performance pattern recognition
-   - Automatic code refinement suggestions
-   - Persistent learning system
-
-## Key Features
-
-### File Management
-- **Security**: All file operations restricted to `projects/` directory
-- **Tree Navigation**: Hierarchical file explorer in sidebar
-- **Tab System**: Multiple file editing with close/modified indicators
-- **New File Creation**: Plus tab with language-specific templates
-
-### AI Integration
-- **Context Awareness**: AI receives current file context (path, language, content preview)
-- **Streaming Responses**: Real-time response chunks via WebSocket
-- **Backend Integration**: Uses existing MeistroCraft task generation (GPT-4) + execution (Claude)
-- **Session Management**: Each web session maps to a MeistroCraft session with isolated project folder
-
-### UI Layout (CSS Grid)
-```css
-grid-template-areas: 
-    "sidebar editor chat"
-    "sidebar terminal chat";
-grid-template-columns: 300px 1fr 300px;
-grid-template-rows: 1fr 200px;
+# Manual web server (requires venv activation)
+python3 web_server.py
 ```
 
-### Resizable Panels
-- **Handles**: Invisible dividers between panels with hover/drag states
-- **Constraints**: Min/max sizes to prevent UI collapse
-- **Editor Integration**: Monaco Editor automatically relayouts on resize
+### Development Setup
+```bash
+# Create virtual environment
+python3 -m venv venv
+source venv/bin/activate  # Linux/macOS
+# venv\Scripts\activate   # Windows
 
-## File Structure
-
-```
-/home/mark/claude-coder/ai_coding_agent/
-├── web_server.py              # FastAPI backend
-├── templates/
-│   └── ide.html              # Main UI template
-├── static/
-│   └── js/
-│       └── ide.js            # Frontend JavaScript
-├── projects/                 # Sandboxed user projects
-├── config/                   # AI API configurations
-└── main.py                   # Core MeistroCraft backend
+# Install dependencies
+pip install -r requirements.txt
 ```
 
-## WebSocket Message Types
+### Testing
+```bash
+# Run specific test suites
+python3 test_github_integration.py        # GitHub API integration
+python3 test_github_optimization.py       # Performance optimization
+python3 test_phase3_cicd.py               # CI/CD pipeline features
+python3 test_naming.py                    # AI naming agent
+```
 
-### Client → Server
-- `chat`: AI assistance request with file context
-- `command`: Terminal command execution
-- `file_operation`: File read/write/list operations
-- `get_tasks`: Request task queue status
+## Core Architecture Patterns
 
-### Server → Client
-- `chat_response_chunk`: Streaming AI response
-- `chat_response_complete`: End of AI response with token count
-- `command_response`: Terminal command output
-- `file_response`: File operation results
+### 1. Dual-Agent System
+The system uses **GPT-4 for strategic planning** and **Claude for code execution**:
 
-## Tab Management System
+```python
+# Task generation (GPT-4)
+task = generate_task_with_gpt4(user_request, config, project_folder, token_tracker, session_id)
 
-### Tab Data Structure
+# Task execution (Claude CLI)
+result = run_claude_task(task, config, session_id, session_manager, project_folder, token_tracker)
+```
+
+### 2. WebSocket Communication Pattern
+Real-time communication between browser and server:
+
 ```javascript
-{
-    id: "unique-tab-id",
-    title: "filename.js",
-    icon: "📄",
-    content: "file content",
-    isFile: true,
-    filePath: "/path/to/file",
-    modified: false,
-    language: "javascript"
-}
-```
-
-### Key Methods
-- `createTab()`: Create new tab with content
-- `switchTab()`: Change active tab and update Monaco Editor
-- `closeTab()`: Remove tab with unsaved changes warning
-- `markTabModified()`: Visual indicator for unsaved changes
-
-## AI Context System
-
-When user sends chat message, frontend automatically includes:
-```javascript
+// Frontend sends context-aware messages
 {
     type: 'chat',
     content: "user message",
@@ -152,137 +81,235 @@ When user sends chat message, frontend automatically includes:
         content_preview: "first 500 chars..."
     }
 }
+
+// Backend streams responses
+{
+    type: "chat_response_chunk",
+    session_id: "session-id",
+    timestamp: "2025-07-14T...",
+    chunk: "response text"
+}
 ```
 
-Backend enhances the message with file context before sending to AI.
+### 3. Session Management Architecture
+Each web session maps to an isolated MeistroCraft session:
 
-## Session Management
+```python
+# Session isolation pattern
+class WebSessionManager:
+    def __init__(self):
+        self.sessions: Dict[str, str] = {}  # web_session_id -> meistrocraft_session_id
+        self.websockets: Dict[str, WebSocket] = {}
+        
+    async def create_session(self, session_id: str) -> str:
+        # Creates isolated project folder in projects/
+        # Returns MeistroCraft session ID
+```
 
-1. **Web Session Creation**: Unique ID generated on page load
-2. **MeistroCraft Session Mapping**: Web session maps to backend session
-3. **Project Folder**: Each session gets isolated folder in `projects/`
-4. **GitHub Integration**: Sessions automatically integrate with GitHub workflows
-5. **Cleanup**: Folders removed when sessions deleted
+### 4. Security Model
+All file operations are restricted to the `projects/` directory:
 
-## GitHub Integration (Phase 1 & 2 Complete)
+```python
+# Security validation pattern
+projects_root = Path("projects").resolve()
+requested_path = (projects_root / user_path).resolve()
 
-### Automated Workflow Integration
-- **Pull Request Creation**: Successful MeistroCraft tasks automatically create PRs
-- **Issue Tracking**: Failed tasks automatically create GitHub issues
-- **Smart Branch Naming**: Session-based branches (`meistrocraft/{session-id}/{action}-{filename}`)
-- **Repository Health**: Workflow analysis and optimization recommendations
+# Ensure path is within projects directory
+try:
+    requested_path.relative_to(projects_root)
+except ValueError:
+    raise HTTPException(status_code=403, detail="Access denied")
+```
 
-### Available GitHub Commands
-```bash
-# Repository operations
+## Key Integration Points
+
+### Monaco Editor Integration
+The IDE uses Monaco Editor with automatic language detection:
+
+```javascript
+// Editor initialization pattern
+this.editor = monaco.editor.create(document.getElementById('editor'), {
+    value: content,
+    language: detectLanguage(fileName),
+    theme: 'vs-dark',
+    automaticLayout: true
+});
+
+// Context preservation
+this.editor.onDidChangeModelContent(() => {
+    this.handleCodeChange();
+    this.markTabModified();
+});
+```
+
+### GitHub Integration
+Comprehensive GitHub API integration with automatic workflow creation:
+
+```python
+# GitHub workflow pattern
+# Successful tasks → Create PRs
+# Failed tasks → Create GitHub issues
+# Branch naming: meistrocraft/{session-id}/{action}-{filename}
+
+# Available commands:
 python main.py --github repos                   # List repositories
-python main.py --github create my-repo          # Create repository
-python main.py --github fork owner/repo         # Fork repository
-
-# Workflow automation
-python main.py --github prs owner/repo          # List pull requests
-python main.py --github issues owner/repo       # List issues
-python main.py --github workflow owner/repo     # Repository health analysis
-
-# Interactive mode
-python main.py --github-interactive             # GitHub shell
+python main.py --github workflow owner/repo     # Analyze repository health
+python main.py --github-interactive             # Interactive GitHub shell
 ```
 
-### Task-to-GitHub Integration
-When MeistroCraft executes tasks, the system automatically:
-1. **Successful Tasks** → Creates PR with comprehensive description and review checklist
-2. **Failed Tasks** → Creates GitHub issue with error details and intelligent labeling
-3. **Session Tracking** → Links all GitHub objects to MeistroCraft sessions for traceability
+### AI Naming Agent
+Creative project naming using GPT-4:
 
-## Security Features
-
-- **Path Traversal Protection**: All file operations validated against projects root
-- **Sandboxing**: Each session isolated to its own project folder
-- **Command Timeout**: Terminal commands limited to 30 seconds
-- **File Size Limits**: 10MB max file size for safety
-
-## Monaco Editor Integration
-
-- **Language Detection**: Based on file extension
-- **Theme**: VS Code dark theme
-- **Auto-layout**: Responds to panel resizing
-- **Change Detection**: Marks tabs as modified on edit
-
-## Preview System
-
-- **Markdown Rendering**: Real-time preview with syntax highlighting
-- **HTML Display**: Live preview in iframe
-- **Toggle Mode**: Split-screen or full editor view
-- **Language Support**: Auto-detection based on file extension
-
-## Debugging Common Issues
-
-### Resizable Windows Not Working
-1. Check if resize handles are positioned correctly in CSS
-2. Verify event listeners are attached in `initializeResize()`
-3. Ensure grid template updates are applied to correct element
-4. Check browser console for JavaScript errors
-
-### AI Context Not Working
-1. Verify `getActiveTabContext()` returns valid data
-2. Check WebSocket message includes context field
-3. Ensure backend enhances content with file info
-
-### File Operations Failing
-1. Check if path is within projects directory
-2. Verify file permissions and existence
-3. Check for proper error handling in WebSocket responses
-
-## Starting MeistroCraft
-
-### 🌐 Web IDE Mode (Browser Interface)
-
-```bash
-# Automated startup (recommended)
-python3 start_ide.py
-
-# Or platform-specific scripts
-./start_ide.sh     # Linux/macOS
-start_ide.bat      # Windows
-
-# Manual startup
-python3 web_server.py
-
-# Access at http://localhost:8000
+```python
+# Instead of "create_a_binary_calculator_usi"
+# Generates: "bin-calc", "sky-cast", "task-flow"
+project_name = generate_creative_project_name(description)
 ```
 
-### ⚡ Command Line Mode (CLI Interface)
+## Configuration Management
 
+### Primary Config: `config/config.json`
+```json
+{
+  "openai_api_key": "sk-your-openai-key",
+  "anthropic_api_key": "sk-ant-your-anthropic-key",
+  "github_api_key": "ghp-your-github-token",
+  "openai_model": "gpt-4-0613",
+  "claude_model": "claude-sonnet-4-20250514",
+  "allowed_tools": ["Read", "Write", "Bash", "Edit", "Glob", "Grep"],
+  "permission_mode": "acceptEdits",
+  "max_turns": 5,
+  "token_limits": {
+    "daily_token_limit": 100000,
+    "daily_cost_limit_usd": 50.0
+  }
+}
+```
+
+### Environment Variables (Production)
 ```bash
-# Basic example
-./meistrocraft
+export ANTHROPIC_API_KEY="your-anthropic-key"
+export OPENAI_API_KEY="your-openai-key"
+export GITHUB_API_KEY="your-github-token"
+```
 
-# Single request
-./meistrocraft --request "Create a calculator app"
+## File Structure Understanding
 
-# Interactive mode with split terminal
-./meistrocraft --interactive
+### Critical Files
+- `main.py` - Core orchestrator with dual-agent coordination
+- `web_server.py` - FastAPI backend with WebSocket handlers
+- `static/js/ide.js` - Frontend JavaScript with Monaco Editor
+- `templates/ide.html` - Main UI template with CSS Grid layout
+- `interactive_ui.py` - CLI interface with Rich library
 
-# GitHub operations
-python main.py --github repos
-python main.py --github workflow owner/repo
+### Key Directories
+- `projects/` - Sandboxed user projects (security boundary)
+- `config/` - Configuration files and API keys
+- `sessions/` - Persistent session storage
+- `static/` - Web assets (JS, CSS, images)
+- `templates/` - Jinja2 HTML templates
 
-# Performance optimization
-python main.py --optimize analyze
+## Development Patterns
+
+### Adding New WebSocket Handlers
+```python
+# Pattern for new message types in web_server.py
+async def handle_websocket_message(websocket: WebSocket, session_id: str, message: Dict[str, Any]):
+    message_type = message.get("type")
+    
+    if message_type == "new_message_type":
+        # Always ensure session initialization
+        meistrocraft_session_id = await session_manager.create_session(session_id)
+        
+        try:
+            # Handler logic here
+            response = {"type": "response_type", "data": result}
+        except Exception as e:
+            response = {"type": "error", "error": str(e)}
+        
+        await websocket.send_text(json.dumps(response))
+```
+
+### Adding New Frontend Features
+```javascript
+// Pattern for new IDE features
+class MeistroCraftIDE {
+    initNewFeature() {
+        // Feature initialization
+    }
+    
+    handleNewFeature(data) {
+        // Send to backend via WebSocket
+        this.ws.send(JSON.stringify({
+            type: 'new_feature',
+            data: data,
+            context: this.getActiveTabContext()
+        }));
+    }
+}
+```
+
+### Token Tracking Integration
+```python
+# Pattern for new API integrations
+if token_tracker and response.get("usage"):
+    usage = TokenUsage.from_response(response, model, session_id, "operation_type")
+    token_tracker.track_usage(usage)
+```
+
+## Testing Patterns
+
+### Integration Testing
+```python
+# Pattern for testing GitHub integration
+def test_github_operation():
+    client = create_github_client(config)
+    result = client.some_operation()
+    assert result.get("success") == True
+```
+
+### Performance Testing
+```python
+# Pattern for performance benchmarks
+def benchmark_operation():
+    start_time = time.time()
+    result = perform_operation()
+    execution_time = time.time() - start_time
+    assert execution_time < expected_threshold
+```
+
+## Self-Optimization System
+
+The system includes intelligent self-optimization:
+
+```python
+# Commands for optimization
+python main.py --optimize analyze               # Analyze performance
+python main.py --optimize apply                # Apply optimizations
+python main.py --optimize history              # View optimization history
+```
+
+## Debugging and Logging
+
+### Comprehensive Logging
+The system includes detailed logging for AI interactions:
+
+```python
+# Logging pattern for AI operations
+print(f"🤖 [GPT-4] Processing user request: {request[:200]}...")
+print(f"🔮 [Claude] Executing task: {task['action']}")
+print(f"📊 [Session] Total tokens: {total_tokens}, Cost: ${cost:.4f}")
+```
+
+### Common Debug Commands
+```bash
+# Check system status
+python main.py --github status
+python main.py --token-usage
+python main.py --sessions
+
+# Performance monitoring
 python main.py --performance benchmark
 ```
 
-## Configuration
-
-- **API Keys**: Set in `config/config.json`
-- **Models**: GPT-4 for task generation, Claude for execution
-- **Limits**: Token tracking and cost monitoring built-in
-
-## Performance Notes
-
-- **WebSocket Streaming**: 5ms delays for smooth chat scrolling
-- **Monaco Layout**: Automatic resize on panel changes
-- **File Loading**: Lazy loading for large directory trees
-- **Memory Management**: Tab cleanup prevents memory leaks
-
-This documentation provides the essential understanding needed to work with, debug, and extend the MeistroCraft IDE system.
+This architecture emphasizes security through sandboxing, real-time communication via WebSockets, and dual-agent AI coordination for optimal code generation and execution.

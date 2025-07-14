@@ -30,7 +30,17 @@
       "Bash(grep:*)",
       "Bash(pip3 install:*)",
       "Bash(source:*)",
-      "Bash(claude)"
+      "Bash(claude)",
+      "Bash(gh issue list:*)",
+      "Bash(node:*)",
+      "Bash(sudo apt:*)",
+      "Bash(sudo apt install:*)",
+      "Bash(gh auth:*)",
+      "Bash(pgrep:*)",
+      "Bash(ps:*)",
+      "Bash(readlink:*)",
+      "Bash(kill:*)",
+      "Bash(./start_ide.sh:*)"
     ],
     "deny": []
   }

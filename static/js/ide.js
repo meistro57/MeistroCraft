@@ -558,6 +558,12 @@ Happy coding! 🚀
             case 'html':
                 previewHTML = content;
                 break;
+            case 'canvas':
+                previewHTML = this.generateCanvasPreview(content, fileName);
+                break;
+            case 'javascript':
+                previewHTML = this.generateJavaScriptPreview(content);
+                break;
             case 'text':
             default:
                 previewHTML = `<pre style="white-space: pre-wrap; font-family: 'Consolas', monospace; margin: 0;">${this.escapeHtml(content)}</pre>`;
@@ -743,6 +749,12 @@ Happy coding! 🚀
             case 'html':
                 previewContent.innerHTML = content;
                 break;
+            case 'canvas':
+                this.renderCanvasPreview(previewContent, content, tab.title);
+                break;
+            case 'javascript':
+                this.renderJavaScriptPreview(previewContent, content);
+                break;
             case 'text':
             default:
                 previewContent.innerHTML = `<pre style="white-space: pre-wrap; font-family: 'Consolas', monospace; margin: 0;">${this.escapeHtml(content)}</pre>`;
@@ -792,12 +804,26 @@ Happy coding! 🚀
         if (!filePath) {
             // Auto-detect based on content
             if (content.includes('<html') || content.includes('<!DOCTYPE')) return 'html';
+            if (content.includes('<canvas') || (content.includes('canvas') && content.includes('getContext'))) return 'canvas';
             if (content.includes('#') || content.includes('*') || content.includes('[')) return 'markdown';
             return 'text';
         }
         
         const extension = filePath.split('.').pop().toLowerCase();
-        if (['html', 'htm'].includes(extension)) return 'html';
+        if (['html', 'htm'].includes(extension)) {
+            // Check if HTML file contains canvas
+            if (content.includes('<canvas') || (content.includes('canvas') && content.includes('getContext'))) {
+                return 'canvas';
+            }
+            return 'html';
+        }
+        if (['js', 'javascript'].includes(extension)) {
+            // Check if JavaScript file contains canvas code
+            if (content.includes('canvas') && (content.includes('getContext') || content.includes('Canvas'))) {
+                return 'canvas';
+            }
+            return 'javascript';
+        }
         if (['md', 'markdown'].includes(extension)) return 'markdown';
         return 'text';
     }
@@ -836,6 +862,220 @@ Happy coding! 🚀
             "'": '&#039;'
         };
         return text.replace(/[&<>"']/g, m => map[m]);
+    }
+    
+    renderCanvasPreview(container, content, fileName) {
+        // Create a unique ID for this canvas preview
+        const canvasId = `canvas-preview-${Date.now()}`;
+        
+        // Check if content is HTML with canvas or JavaScript
+        if (content.includes('<canvas') || content.includes('<!DOCTYPE') || content.includes('<html')) {
+            // HTML file with canvas - render directly
+            container.innerHTML = content;
+        } else {
+            // JavaScript canvas code - wrap in HTML template
+            const canvasHTML = `
+                <div class="canvas-preview-container">
+                    <div class="canvas-info">
+                        <h3>Live Canvas Preview: ${fileName}</h3>
+                        <p>This preview updates automatically as you edit the code.</p>
+                    </div>
+                    <div class="canvas-wrapper">
+                        <canvas id="${canvasId}" width="800" height="600" style="border: 1px solid #333; background: #fff;"></canvas>
+                    </div>
+                    <div class="canvas-controls">
+                        <button onclick="window.ide.refreshCanvasPreview('${canvasId}')">🔄 Refresh</button>
+                        <button onclick="window.ide.clearCanvas('${canvasId}')">🗑️ Clear</button>
+                    </div>
+                </div>
+                
+                <style>
+                    .canvas-preview-container {
+                        padding: 20px;
+                        background: #1e1e1e;
+                        color: #d4d4d4;
+                    }
+                    .canvas-info {
+                        margin-bottom: 15px;
+                        padding: 10px;
+                        background: #2d2d30;
+                        border-radius: 5px;
+                    }
+                    .canvas-info h3 {
+                        margin: 0 0 5px 0;
+                        color: #007acc;
+                    }
+                    .canvas-info p {
+                        margin: 0;
+                        font-size: 14px;
+                        opacity: 0.8;
+                    }
+                    .canvas-wrapper {
+                        text-align: center;
+                        margin: 20px 0;
+                        padding: 20px;
+                        background: #2d2d30;
+                        border-radius: 5px;
+                    }
+                    .canvas-controls {
+                        text-align: center;
+                        margin-top: 15px;
+                    }
+                    .canvas-controls button {
+                        background: #007acc;
+                        color: white;
+                        border: none;
+                        padding: 8px 15px;
+                        margin: 0 5px;
+                        border-radius: 4px;
+                        cursor: pointer;
+                        font-size: 14px;
+                    }
+                    .canvas-controls button:hover {
+                        background: #0088cc;
+                    }
+                </style>
+            `;
+            
+            container.innerHTML = canvasHTML;
+        }
+        
+        // Execute the canvas code
+        setTimeout(() => {
+            this.executeCanvasCode(content, canvasId);
+        }, 100);
+    }
+    
+    executeCanvasCode(code, canvasId) {
+        try {
+            // Create a safe execution context
+            const canvas = document.getElementById(canvasId);
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            
+            // Clear the canvas first
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            // Create a function wrapper for the code
+            const wrappedCode = `
+                (function() {
+                    const canvas = document.getElementById('${canvasId}');
+                    const ctx = canvas ? canvas.getContext('2d') : null;
+                    if (!ctx) return;
+                    
+                    // Execute user code
+                    ${code}
+                })();
+            `;
+            
+            // Execute the code safely
+            eval(wrappedCode);
+        } catch (error) {
+            console.error('Canvas preview error:', error);
+            const canvas = document.getElementById(canvasId);
+            if (canvas) {
+                const ctx = canvas.getContext('2d');
+                ctx.clearRect(0, 0, canvas.width, canvas.height);
+                ctx.fillStyle = '#ff4444';
+                ctx.font = '16px Arial';
+                ctx.fillText('Error in canvas code:', 10, 30);
+                ctx.fillText(error.message, 10, 60);
+            }
+        }
+    }
+    
+    refreshCanvasPreview(canvasId) {
+        if (!this.activeTab) return;
+        const tab = this.openTabs.get(this.activeTab);
+        if (tab) {
+            this.executeCanvasCode(tab.content, canvasId);
+        }
+    }
+    
+    clearCanvas(canvasId) {
+        const canvas = document.getElementById(canvasId);
+        if (canvas) {
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        }
+    }
+    
+    renderJavaScriptPreview(container, content) {
+        container.innerHTML = `
+            <div class="javascript-preview">
+                <h3>JavaScript Code Preview</h3>
+                <p>This JavaScript file appears to contain canvas operations. Switch to canvas preview mode to see live rendering.</p>
+                <pre style="background: #2d2d30; padding: 15px; border-radius: 5px; overflow-x: auto;"><code>${this.escapeHtml(content)}</code></pre>
+            </div>
+        `;
+    }
+    
+    generateCanvasPreview(content, fileName) {
+        // For popup window canvas preview
+        if (content.includes('<canvas') || content.includes('<!DOCTYPE') || content.includes('<html')) {
+            return content;
+        } else {
+            return `
+                <!DOCTYPE html>
+                <html>
+                <head>
+                    <title>Canvas Preview: ${fileName}</title>
+                    <style>
+                        body { 
+                            margin: 0; 
+                            padding: 20px; 
+                            background: #1e1e1e; 
+                            color: #d4d4d4;
+                            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+                        }
+                        canvas { 
+                            border: 1px solid #333; 
+                            background: #fff; 
+                            display: block; 
+                            margin: 20px auto;
+                        }
+                        .info {
+                            text-align: center;
+                            margin-bottom: 20px;
+                            padding: 15px;
+                            background: #2d2d30;
+                            border-radius: 5px;
+                        }
+                    </style>
+                </head>
+                <body>
+                    <div class="info">
+                        <h2>Live Canvas Preview: ${fileName}</h2>
+                        <p>This preview updates automatically as you edit the code.</p>
+                    </div>
+                    <canvas id="canvas" width="800" height="600"></canvas>
+                    <script>
+                        const canvas = document.getElementById('canvas');
+                        const ctx = canvas.getContext('2d');
+                        
+                        try {
+                            ${content}
+                        } catch (error) {
+                            ctx.fillStyle = '#ff4444';
+                            ctx.font = '16px Arial';
+                            ctx.fillText('Error: ' + error.message, 10, 30);
+                        }
+                    </script>
+                </body>
+                </html>
+            `;
+        }
+    }
+    
+    generateJavaScriptPreview(content) {
+        return `
+            <div style="padding: 20px; background: #1e1e1e; color: #d4d4d4; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;">
+                <h2>JavaScript Code</h2>
+                <p>This appears to be JavaScript code. If it contains canvas operations, try the canvas preview mode.</p>
+                <pre style="background: #2d2d30; padding: 15px; border-radius: 5px; overflow-x: auto; white-space: pre-wrap;"><code>${this.escapeHtml(content)}</code></pre>
+            </div>
+        `;
     }
     
     setupTabListeners() {

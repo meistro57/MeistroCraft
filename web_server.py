@@ -724,20 +724,28 @@ async def generate_project(request: Request):
         project_spec = body.get("project_spec", {})
         session_id = body.get("session_id")
         
+        print(f"🏗️  [Project] Starting project generation for session {session_id}")
+        print(f"🏗️  [Project] Project spec: {json.dumps(project_spec, indent=2)}")
+        
         if not project_spec:
             raise HTTPException(status_code=400, detail="Project specification required")
         
         # Ensure we have a MeistroCraft session
         meistrocraft_session_id = await session_manager.create_session(session_id or f"project-{datetime.now().timestamp()}")
+        print(f"🏗️  [Project] Created MeistroCraft session: {meistrocraft_session_id}")
         
         # Get session data for project folder
         session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
         project_folder = session_data.get("project_folder") if session_data else None
+        print(f"🏗️  [Project] Project folder: {project_folder}")
         
         # Create project generation task
         project_prompt = create_project_generation_prompt(project_spec)
+        print(f"🏗️  [Project] Generated prompt length: {len(project_prompt)} chars")
+        print(f"🏗️  [Project] Prompt preview: {project_prompt[:300]}...")
         
         # Generate task with GPT-4
+        print(f"🤖 [Project] Generating task with GPT-4...")
         task = generate_task_with_gpt4(
             project_prompt,
             session_manager.config,
@@ -747,21 +755,48 @@ async def generate_project(request: Request):
         )
         
         if not task:
+            print(f"❌ [Project] GPT-4 task generation failed")
             raise HTTPException(status_code=500, detail="Failed to generate project task")
         
+        print(f"✅ [Project] GPT-4 generated task: {task['action']}")
+        print(f"🏗️  [Project] Task instruction: {task['instruction'][:200]}...")
+        if 'reasoning' in task:
+            print(f"💭 [Project] GPT-4 reasoning: {task['reasoning'][:200]}...")
+        
         # Execute with Claude
-        result = run_claude_task(
-            task,
-            session_manager.config,
-            meistrocraft_session_id,
-            session_manager.session_manager,
-            project_folder,
-            session_manager.token_tracker
-        )
+        print(f"🔮 [Project] Executing with Claude...")
+        try:
+            result = run_claude_task(
+                task,
+                session_manager.config,
+                meistrocraft_session_id,
+                session_manager.session_manager,
+                project_folder,
+                session_manager.token_tracker
+            )
+            
+            print(f"🔮 [Project] Claude execution completed. Success: {result.get('success', False)}")
+            
+            if result.get('success'):
+                print(f"✅ [Project] Claude success! Response length: {len(result.get('result', ''))} chars")
+                print(f"🏗️  [Project] Result preview: {result.get('result', '')[:300]}...")
+            else:
+                print(f"❌ [Project] Claude failed: {result.get('error', 'Unknown error')}")
+                
+        except Exception as claude_error:
+            print(f"❌ [Project] Claude execution exception: {claude_error}")
+            print(f"❌ [Project] Error type: {type(claude_error).__name__}")
+            import traceback
+            print(f"❌ [Project] Traceback: {traceback.format_exc()}")
+            result = {"success": False, "error": str(claude_error)}
         
         if result.get("success"):
             # Save to session
             session_manager.session_manager.add_task_to_session(meistrocraft_session_id, task, result)
+            
+            print(f"📊 [Project] Project generation successful!")
+            print(f"📊 [Project] Session: {meistrocraft_session_id}")
+            print(f"📊 [Project] Folder: {project_folder}")
             
             return {
                 "success": True,
@@ -771,9 +806,15 @@ async def generate_project(request: Request):
                 "timestamp": datetime.now().isoformat()
             }
         else:
-            raise HTTPException(status_code=500, detail=f"Project generation failed: {result.get('error', 'Unknown error')}")
+            error_msg = result.get('error', 'Unknown error')
+            print(f"❌ [Project] Project generation failed: {error_msg}")
+            raise HTTPException(status_code=500, detail=f"Project generation failed: {error_msg}")
             
     except Exception as e:
+        print(f"❌ [Project] Exception in generate_project: {e}")
+        print(f"❌ [Project] Error type: {type(e).__name__}")
+        import traceback
+        print(f"❌ [Project] Traceback: {traceback.format_exc()}")
         raise HTTPException(status_code=500, detail=str(e))
 
 def create_project_generation_prompt(project_spec: Dict[str, Any]) -> str:
@@ -1821,6 +1862,9 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
         content = message.get("content", "")
         context = message.get("context", None)
         
+        # Initialize session variable to prevent scope errors
+        meistrocraft_session_id = None
+        
         try:
             # Ensure we have a MeistroCraft session
             meistrocraft_session_id = await session_manager.create_session(session_id)
@@ -1847,6 +1891,14 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                 enhanced_content = content + file_info
             
             # Generate task with GPT-4
+            print(f"🤖 [GPT-4] Processing user request: {enhanced_content[:200]}...")
+            await websocket.send_text(json.dumps({
+                "type": "chat_response_chunk", 
+                "session_id": session_id,
+                "timestamp": datetime.now().isoformat(),
+                "chunk": "🤖 Analyzing request with GPT-4...\n"
+            }))
+            
             task = generate_task_with_gpt4(
                 enhanced_content, 
                 session_manager.config, 
@@ -1857,26 +1909,53 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
             
             if not task:
                 # Fallback response if GPT-4 fails
+                print(f"❌ [GPT-4] Task generation failed for session {session_id}")
                 await websocket.send_text(json.dumps({
                     "type": "chat_response_chunk", 
                     "session_id": session_id,
                     "timestamp": datetime.now().isoformat(),
-                    "chunk": "I apologize, but I'm having trouble connecting to the AI service right now. Please check your API configuration and try again."
+                    "chunk": "❌ GPT-4 task generation failed. Please check your API configuration and try again.\n"
                 }))
                 # Set token tracking variables for failed task generation
                 total_tokens = 0
                 cost = 0.0
             else:
+                # Log successful task generation
+                print(f"✅ [GPT-4] Generated task: {task['action']} - {task['instruction'][:100]}...")
+                if 'reasoning' in task:
+                    print(f"💭 [GPT-4] Reasoning: {task['reasoning'][:200]}...")
+                
                 # Send task info
                 await websocket.send_text(json.dumps({
                     "type": "chat_response_chunk", 
                     "session_id": session_id,
                     "timestamp": datetime.now().isoformat(),
-                    "chunk": f"🎯 Task: {task['action']} - {task['instruction'][:100]}{'...' if len(task['instruction']) > 100 else ''}\n\n"
+                    "chunk": f"🎯 **Task Generated**: {task['action']}\n📝 **Instruction**: {task['instruction'][:200]}{'...' if len(task['instruction']) > 200 else ''}\n\n"
+                }))
+                
+                # Send reasoning if available
+                if 'reasoning' in task and task['reasoning']:
+                    await websocket.send_text(json.dumps({
+                        "type": "chat_response_chunk", 
+                        "session_id": session_id,
+                        "timestamp": datetime.now().isoformat(),
+                        "chunk": f"💭 **AI Reasoning**: {task['reasoning'][:300]}{'...' if len(task['reasoning']) > 300 else ''}\n\n"
+                    }))
+                    print(f"💭 [GPT-4] Full reasoning: {task['reasoning']}")
+                    
+                await websocket.send_text(json.dumps({
+                    "type": "chat_response_chunk", 
+                    "session_id": session_id,
+                    "timestamp": datetime.now().isoformat(),
+                    "chunk": "🔮 Executing task with Claude...\n"
                 }))
                 
                 # Execute with Claude
                 try:
+                    print(f"🔮 [Claude] Executing task: {task['action']}")
+                    print(f"🔮 [Claude] Project folder: {project_folder}")
+                    print(f"🔮 [Claude] Instruction: {task['instruction'][:200]}...")
+                    
                     result = run_claude_task(
                         task, 
                         session_manager.config, 
@@ -1885,13 +1964,47 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                         project_folder,
                         session_manager.token_tracker
                     )
+                    
+                    print(f"🔮 [Claude] Task execution completed. Success: {result.get('success', False)}")
+                    
                 except Exception as claude_error:
-                    print(f"Claude task execution failed: {claude_error}")
+                    print(f"❌ [Claude] Task execution failed: {claude_error}")
+                    print(f"❌ [Claude] Error type: {type(claude_error).__name__}")
+                    import traceback
+                    print(f"❌ [Claude] Traceback: {traceback.format_exc()}")
+                    
+                    await websocket.send_text(json.dumps({
+                        "type": "chat_response_chunk", 
+                        "session_id": session_id,
+                        "timestamp": datetime.now().isoformat(),
+                        "chunk": f"❌ **Claude execution error**: {str(claude_error)}\n"
+                    }))
+                    
                     result = {"success": False, "error": str(claude_error)}
                 
                 if result.get("success"):
-                    # Stream the response
+                    # Log successful execution
                     response_text = result.get("result", "Task completed successfully!")
+                    print(f"✅ [Claude] Success! Response length: {len(response_text)} chars")
+                    
+                    # Log Claude's internal response if available
+                    if 'response' in result:
+                        claude_response = result['response']
+                        if isinstance(claude_response, dict):
+                            if 'content' in claude_response:
+                                print(f"🔮 [Claude] Content preview: {str(claude_response['content'])[:200]}...")
+                            if 'usage' in claude_response:
+                                usage = claude_response['usage']
+                                print(f"🔮 [Claude] Token usage: {usage.get('input_tokens', 0)} in + {usage.get('output_tokens', 0)} out")
+                    
+                    # Stream the response with better formatting
+                    await websocket.send_text(json.dumps({
+                        "type": "chat_response_chunk", 
+                        "session_id": session_id,
+                        "timestamp": datetime.now().isoformat(),
+                        "chunk": "✅ **Claude Response**:\n\n"
+                    }))
+                    
                     words = response_text.split()
                     chunk_size = 8
                     
@@ -1913,13 +2026,24 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                     total_tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
                     cost = result.get("response", {}).get("total_cost_usd", 0.0)
                     
+                    print(f"📊 [Session] Total tokens: {total_tokens}, Cost: ${cost:.4f}")
+                    
                 else:
+                    # Log failed execution
+                    error_msg = result.get('error', 'Unknown error')
+                    print(f"❌ [Claude] Task failed: {error_msg}")
+                    
                     await websocket.send_text(json.dumps({
                         "type": "chat_response_chunk", 
                         "session_id": session_id,
                         "timestamp": datetime.now().isoformat(),
-                        "chunk": f"❌ Task failed: {result.get('error', 'Unknown error')}"
+                        "chunk": f"❌ **Task failed**: {error_msg}\n"
                     }))
+                    
+                    # Log additional debug info if available
+                    if 'debug_info' in result:
+                        print(f"🔍 [Claude] Debug info: {result['debug_info']}")
+                    
                     total_tokens = 0
                     cost = 0.0
             
@@ -1951,6 +2075,9 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
     elif message_type == "command":
         # Handle terminal commands
         command = message.get("command", "")
+        
+        # Initialize session variable to prevent scope errors
+        meistrocraft_session_id = None
         
         try:
             import subprocess
@@ -2124,6 +2251,7 @@ Add development guidelines here.
         
     elif message_type == "get_tasks":
         # Get task queue status
+        meistrocraft_session_id = None
         try:
             # Ensure we have a MeistroCraft session
             meistrocraft_session_id = await session_manager.create_session(session_id)
@@ -2158,6 +2286,7 @@ Add development guidelines here.
                 "tasks": tasks
             }
         except Exception as e:
+            print(f"Error in get_tasks handler: {e}")
             response = {
                 "type": "error",
                 "session_id": session_id,
