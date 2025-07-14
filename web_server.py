@@ -1956,6 +1956,9 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
             import subprocess
             import shlex
             
+            # Ensure we have a MeistroCraft session
+            meistrocraft_session_id = await session_manager.create_session(session_id)
+            
             # Get session data to determine project folder
             session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
             project_folder = session_data.get("project_folder") if session_data else None
