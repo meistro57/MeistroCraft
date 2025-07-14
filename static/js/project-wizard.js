@@ -239,6 +239,33 @@ class ProjectWizard {
                     color: white;
                     border-color: #28a745;
                 }
+                
+                /* AI Choice styling */
+                .ai-choice-notice {
+                    display: flex;
+                    align-items: center;
+                    padding: 12px;
+                    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+                    border-radius: 8px;
+                    color: white;
+                    margin: 10px 0;
+                }
+                
+                .ai-notice-icon {
+                    font-size: 24px;
+                    margin-right: 12px;
+                }
+                
+                .ai-notice-text {
+                    flex: 1;
+                }
+                
+                .ai-framework-choice {
+                    background: rgba(102, 126, 234, 0.1);
+                    border: 1px solid rgba(102, 126, 234, 0.3);
+                    border-radius: 6px;
+                    margin-bottom: 8px;
+                }
             </style>
             <div id="projectWizard" class="wizard-overlay">
                 <div class="wizard-container">
@@ -440,6 +467,7 @@ class ProjectWizard {
                     <label class="form-label">Primary Programming Language *</label>
                     <select class="form-select" id="primaryLanguage" required>
                         <option value="">Select language...</option>
+                        <option value="ai-best-choice">🤖 AI Best Choice - Let AI choose optimal language</option>
                         <option value="javascript">JavaScript/TypeScript</option>
                         <option value="python">Python</option>
                         <option value="java">Java</option>
@@ -466,6 +494,7 @@ class ProjectWizard {
                     <label class="form-label">Database Type</label>
                     <select class="form-select" id="databaseType">
                         <option value="">No database needed</option>
+                        <option value="ai-best-choice">🤖 AI Best Choice - Let AI choose optimal database</option>
                         <option value="sqlite">SQLite (lightweight)</option>
                         <option value="postgresql">PostgreSQL</option>
                         <option value="mysql">MySQL</option>
@@ -897,14 +926,37 @@ class ProjectWizard {
     
     updateFrameworkOptions(language) {
         const frameworkContainer = document.getElementById('frameworkOptions');
+        
+        if (language === 'ai-best-choice') {
+            frameworkContainer.innerHTML = `
+                <div class="ai-choice-notice">
+                    <div class="ai-notice-icon">🤖</div>
+                    <div class="ai-notice-text">
+                        <strong>AI will select optimal frameworks</strong><br>
+                        The AI will analyze your project requirements and choose the best frameworks and libraries automatically.
+                    </div>
+                </div>
+            `;
+            return;
+        }
+        
         const frameworks = this.getFrameworksForLanguage(language);
         
-        frameworkContainer.innerHTML = frameworks.map(fw => `
+        const frameworkHTML = [
+            `<label class="form-checkbox ai-framework-choice">
+                <input type="checkbox" name="frameworks" value="ai-best-choice">
+                <span>🤖 Let AI choose optimal frameworks for this language</span>
+            </label>`
+        ];
+        
+        frameworkHTML.push(...frameworks.map(fw => `
             <label class="form-checkbox">
                 <input type="checkbox" name="frameworks" value="${fw.value}">
                 <span>${fw.icon} ${fw.name}</span>
             </label>
-        `).join('');
+        `));
+        
+        frameworkContainer.innerHTML = frameworkHTML.join('');
     }
     
     updateCoreFeatures(projectType) {

@@ -1272,6 +1272,9 @@ Happy coding! 🚀
             document.getElementById('sessionsTab').style.display = 'none';
             document.getElementById('settingsTab').style.display = 'block';
             
+            // Refresh settings UI when settings tab is opened
+            this.updateSettingsUI();
+            
             // Check API status when settings tab is opened
             this.checkInitialAPIStatus();
         }
@@ -1521,10 +1524,15 @@ Happy coding! 🚀
     
     updateSettingsUI() {
         // Update all form elements with current settings
-        document.getElementById('openaiKey').value = this.settings.openaiKey;
-        document.getElementById('anthropicKey').value = this.settings.anthropicKey;
-        document.getElementById('githubKey').value = this.settings.githubKey;
-        document.getElementById('defaultModel').value = this.settings.defaultModel;
+        const openaiKeyField = document.getElementById('openaiKey');
+        const anthropicKeyField = document.getElementById('anthropicKey');
+        const githubKeyField = document.getElementById('githubKey');
+        const defaultModelField = document.getElementById('defaultModel');
+        
+        if (openaiKeyField) openaiKeyField.value = this.settings.openaiKey || '';
+        if (anthropicKeyField) anthropicKeyField.value = this.settings.anthropicKey || '';
+        if (githubKeyField) githubKeyField.value = this.settings.githubKey || '';
+        if (defaultModelField) defaultModelField.value = this.settings.defaultModel || 'gpt-4';
         
         document.getElementById('editorTheme').value = this.settings.editorTheme;
         document.getElementById('fontSize').value = this.settings.fontSize;
