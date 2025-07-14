@@ -102,6 +102,66 @@ class ProjectWizard {
                     margin-bottom: 2px;
                     line-height: 1.3;
                 }
+                
+                /* Progress steps styling */
+                .wizard-progress {
+                    margin: 20px 0;
+                }
+                
+                .progress-bar {
+                    width: 100%;
+                    height: 4px;
+                    background: #e9ecef;
+                    border-radius: 2px;
+                    margin-bottom: 15px;
+                    overflow: hidden;
+                }
+                
+                .progress-fill {
+                    height: 100%;
+                    background: #007bff;
+                    border-radius: 2px;
+                    transition: width 0.3s ease;
+                    width: 16.67%;
+                }
+                
+                .progress-steps {
+                    display: flex;
+                    justify-content: space-between;
+                    flex-wrap: nowrap;
+                    gap: 4px;
+                    overflow-x: auto;
+                    padding: 2px;
+                }
+                
+                .progress-step {
+                    font-size: 10px;
+                    color: #6c757d;
+                    padding: 3px 6px;
+                    border-radius: 10px;
+                    background: #f8f9fa;
+                    border: 1px solid #dee2e6;
+                    text-align: center;
+                    flex: 1;
+                    min-width: 60px;
+                    max-width: 85px;
+                    white-space: nowrap;
+                    overflow: hidden;
+                    text-overflow: ellipsis;
+                    font-weight: 500;
+                }
+                
+                .progress-step.active {
+                    background: #007bff;
+                    color: white;
+                    border-color: #007bff;
+                }
+                
+                .progress-step.completed {
+                    background: #28a745;
+                    color: white;
+                    border-color: #28a745;
+                }
             </style>
             <div id="projectWizard" class="wizard-overlay">
                 <div class="wizard-container">
@@ -126,11 +186,11 @@ class ProjectWizard {
                         </div>
                         <div class="progress-steps">
                             <span class="progress-step active">Template</span>
-                            <span class="progress-step">Project Basics</span>
-                            <span class="progress-step">Technology Stack</span>
-                            <span class="progress-step">Features & Functionality</span>
-                            <span class="progress-step">Requirements & Constraints</span>
-                            <span class="progress-step">Review & Generate</span>
+                            <span class="progress-step">Basics</span>
+                            <span class="progress-step">Tech Stack</span>
+                            <span class="progress-step">Features</span>
+                            <span class="progress-step">Requirements</span>
+                            <span class="progress-step">Review</span>
                         </div>
                     </div>
                     
@@ -964,7 +1024,12 @@ class ProjectWizard {
     
     updateProgress() {
         const progress = ((this.currentStep + 1) / this.maxSteps) * 100;
-        document.getElementById('progressFill').style.width = `${progress}%`;
+        const progressFill = document.getElementById('progressFill');
+        if (progressFill) {
+            progressFill.style.width = `${progress}%`;
+        }
+        
+        this.addDebugAction(`Progress updated: ${progress.toFixed(1)}% (Step ${this.currentStep + 1}/${this.maxSteps})`);
     }
     
     updateButtons() {
