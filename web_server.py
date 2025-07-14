@@ -1837,6 +1837,9 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                     "timestamp": datetime.now().isoformat(),
                     "chunk": "I apologize, but I'm having trouble connecting to the AI service right now. Please check your API configuration and try again."
                 }))
+                # Set token tracking variables for failed task generation
+                total_tokens = 0
+                cost = 0.0
             else:
                 # Send task info
                 await websocket.send_text(json.dumps({
