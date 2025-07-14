@@ -69,7 +69,7 @@ class MemoryEntry:
             metadata={
                 "content_hash": hashlib.sha256(content_str.encode()).hexdigest(),
                 "source": "meistrocraft",
-                "version": "2.0.0"
+                "version": "3.1.0"
             },
             created_at=now,
             last_accessed=now,

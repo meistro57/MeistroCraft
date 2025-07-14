@@ -6,8 +6,7 @@
   > **A Complete Multi-Agent System for Autonomous Code Generation**
 </div>
 
-[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![Node.js 18+](https://img.shields.io/badge/node.js-18+-green.svg)](https://nodejs.org/)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A sophisticated multi-agent system that combines GPT-4's strategic planning capabilities with Claude Code CLI's advanced coding expertise to create an autonomous code generation and modification platform. Features a modern split terminal interface with real-time token tracking, comprehensive session management, and enterprise-grade usage monitoring.
@@ -85,6 +84,8 @@ graph TD
 - **📖 Code Analysis**: Explain algorithms, debug issues, and optimize performance
 - **🧪 Testing**: Generate and run tests automatically
 - **📚 Documentation**: Create comprehensive documentation and comments
+- **🎨 Canvas Development**: Create and preview HTML5 Canvas applications with live rendering
+- **📱 Interactive Web Development**: Real-time JavaScript execution and preview
 
 ### Advanced Features
 - **🖥️ Split Terminal Interface**: Modern UI with separate panes for input, output, and status
@@ -115,17 +116,7 @@ graph TD
    sudo apt install python3 python3-pip python3-venv
    ```
 
-2. **Node.js 18+** (for Claude Code CLI)
-   ```bash
-   # Check version
-   node --version
-   
-   # Install if needed (Ubuntu/Debian)
-   curl -fsSL https://deb.nodesource.com/setup_18.x | sudo -E bash -
-   sudo apt-get install -y nodejs
-   ```
-
-3. **API Keys**
+2. **API Keys**
    - [Anthropic API Key](https://console.anthropic.com/) (required)
    - [OpenAI API Key](https://platform.openai.com/) (required for GPT-4 features)
    - [GitHub PAT Token](https://github.com/settings/tokens) (optional for GitHub integration)
@@ -162,18 +153,7 @@ The startup scripts automatically:
 
 ### Manual Installation (Advanced Users)
 
-1. **Install Claude Code CLI**
-   ```bash
-   npm install -g @anthropic-ai/claude-code
-   ```
-
-2. **Verify Claude Installation**
-   ```bash
-   claude --version
-   claude doctor
-   ```
-
-3. **Setup Python Environment**
+1. **Setup Python Environment**
    ```bash
    # Create virtual environment
    python3 -m venv venv
@@ -183,7 +163,7 @@ The startup scripts automatically:
    pip install -r requirements.txt
    ```
 
-4. **Configure API Keys**
+2. **Configure API Keys**
    ```bash
    # Copy template and edit with your keys
    cp config/config.template.json config/config.json
@@ -206,6 +186,82 @@ The startup scripts automatically:
      }
    }
    ```
+
+## 🎨 Canvas Preview System
+
+MeistroCraft features a sophisticated **Canvas Preview System** that provides live HTML5 Canvas rendering with interactive controls, making it perfect for graphics programming, game development, and data visualization.
+
+### ✨ Key Features
+
+- **🔄 Live Rendering**: Canvas code executes in real-time as you edit
+- **🎮 Interactive Controls**: Refresh, clear, and manipulate canvas content
+- **🧠 Smart Detection**: Automatically detects canvas code in HTML and JavaScript files
+- **🛡️ Safe Execution**: Sandboxed code execution with error handling
+- **📱 Responsive Design**: Works seamlessly across different screen sizes
+
+### 🚀 Canvas Preview Modes
+
+#### 1. **HTML Canvas Files**
+For HTML files containing `<canvas>` elements:
+```html
+<!DOCTYPE html>
+<html>
+<head><title>Canvas Demo</title></head>
+<body>
+    <canvas id="myCanvas" width="800" height="600"></canvas>
+    <script>
+        const canvas = document.getElementById('myCanvas');
+        const ctx = canvas.getContext('2d');
+        
+        // Your canvas drawing code here
+        ctx.fillStyle = '#ff0000';
+        ctx.fillRect(50, 50, 100, 100);
+    </script>
+</body>
+</html>
+```
+
+#### 2. **JavaScript Canvas Code**
+For JavaScript files with canvas operations:
+```javascript
+// Automatically detects canvas context usage
+const canvas = document.getElementById('canvas');
+const ctx = canvas.getContext('2d');
+
+// Draw a simple animation
+function animate() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#00ff00';
+    ctx.fillRect(Math.random() * 700, Math.random() * 500, 50, 50);
+    requestAnimationFrame(animate);
+}
+animate();
+```
+
+### 🎯 Use Cases
+
+- **🎮 Game Development**: Create and test game mechanics in real-time
+- **📊 Data Visualization**: Build interactive charts and graphs
+- **🎨 Creative Coding**: Experiment with generative art and animations
+- **📚 Learning**: Practice canvas programming with immediate feedback
+- **🔬 Prototyping**: Quickly test visual concepts and algorithms
+
+### 🛠️ Interactive Controls
+
+The canvas preview includes built-in controls:
+- **🔄 Refresh**: Re-execute the canvas code
+- **🗑️ Clear**: Clear the canvas content
+- **⚙️ Settings**: Adjust canvas size and rendering options (coming soon)
+
+### 📱 How It Works
+
+1. **Detection**: The system automatically identifies canvas-related code
+2. **Rendering**: Code is executed in a safe, sandboxed environment
+3. **Display**: Live preview appears in the right panel
+4. **Interaction**: Use controls to manipulate the canvas in real-time
+5. **Updates**: Changes to code automatically refresh the preview
+
+This makes MeistroCraft ideal for canvas-based development workflows!
 
 ## 🎮 Quick Start
 
@@ -231,6 +287,10 @@ python3 web_server.py
 - 🔄 Live file editing with syntax highlighting
 - 📊 Token usage tracking
 - 🎯 Multi-tab editing with auto-save
+- 🎨 **Canvas Preview**: Live HTML5 Canvas rendering with interactive controls
+- 📱 **JavaScript Execution**: Real-time code execution and preview
+- 🖼️ **Smart Preview**: Automatic detection of canvas code for live rendering
+- 🎮 **Interactive Controls**: Refresh, clear, and real-time canvas manipulation
 
 ### 🎯 Command Line Mode (CLI Interface)
 

@@ -89,6 +89,15 @@ Real-time communication between browser and server:
     timestamp: "2025-07-14T...",
     chunk: "response text"
 }
+
+// Canvas preview updates
+{
+    type: "canvas_preview_update",
+    tab_id: "tab-id",
+    preview_type: "canvas",
+    content: "canvas code",
+    timestamp: "2025-07-14T..."
+}
 ```
 
 ### 3. Session Management Architecture
@@ -141,6 +150,70 @@ this.editor.onDidChangeModelContent(() => {
     this.markTabModified();
 });
 ```
+
+### Canvas Preview Integration
+The IDE includes sophisticated canvas preview capabilities for graphics programming:
+
+```javascript
+// Canvas preview detection pattern
+getPreviewType(content, filePath) {
+    // Auto-detect canvas code
+    if (content.includes('<canvas') || (content.includes('canvas') && content.includes('getContext'))) {
+        return 'canvas';
+    }
+    // ... other preview types
+}
+
+// Canvas rendering pattern
+renderCanvasPreview(container, content, fileName) {
+    const canvasId = `canvas-preview-${Date.now()}`;
+    
+    // Create canvas environment
+    const canvasHTML = `
+        <canvas id="${canvasId}" width="800" height="600"></canvas>
+        <div class="canvas-controls">
+            <button onclick="window.ide.refreshCanvasPreview('${canvasId}')">🔄 Refresh</button>
+            <button onclick="window.ide.clearCanvas('${canvasId}')">🗑️ Clear</button>
+        </div>
+    `;
+    
+    container.innerHTML = canvasHTML;
+    
+    // Execute canvas code safely
+    this.executeCanvasCode(content, canvasId);
+}
+
+// Safe canvas code execution
+executeCanvasCode(code, canvasId) {
+    try {
+        const canvas = document.getElementById(canvasId);
+        const ctx = canvas.getContext('2d');
+        
+        // Sandboxed execution
+        const wrappedCode = `
+            (function() {
+                const canvas = document.getElementById('${canvasId}');
+                const ctx = canvas ? canvas.getContext('2d') : null;
+                if (!ctx) return;
+                
+                ${code}
+            })();
+        `;
+        
+        eval(wrappedCode);
+    } catch (error) {
+        // Error handling with canvas feedback
+        this.displayCanvasError(canvasId, error);
+    }
+}
+```
+
+#### Canvas Preview Features
+- **Live Rendering**: Code executes in real-time as you edit
+- **Interactive Controls**: Refresh and clear buttons for canvas manipulation
+- **Smart Detection**: Automatically detects canvas code in HTML and JavaScript
+- **Error Handling**: Safe execution with visual error feedback
+- **Multiple Formats**: Supports both standalone JavaScript and HTML with canvas
 
 ### GitHub Integration
 Comprehensive GitHub API integration with automatic workflow creation:

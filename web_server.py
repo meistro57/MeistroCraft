@@ -35,7 +35,7 @@ from claude_squad_bridge import squad_bridge, SquadAgentType, SquadSession
 app = FastAPI(
     title="MeistroCraft IDE",
     description="Browser-based IDE interface for MeistroCraft AI Development Orchestrator",
-    version="2.0.0"
+    version="3.1.0"
 )
 
 @app.on_event("startup")
@@ -134,7 +134,7 @@ async def health_check():
     return {
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
-        "version": "2.0.0"
+        "version": "3.1.0"
     }
 
 @app.get("/MeistroCraft_logo.ico")
