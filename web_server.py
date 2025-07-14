@@ -783,8 +783,34 @@ def create_project_generation_prompt(project_spec: Dict[str, Any]) -> str:
     features = project_spec.get("features", {})
     requirements = project_spec.get("requirements", {})
     options = project_spec.get("generation_options", {})
+    metadata = project_spec.get("metadata", {})
     
-    prompt = f"""🚀 **PROJECT GENERATION REQUEST**
+    # Handle AI Best Choice template selection
+    ai_selection_prefix = ""
+    if metadata.get("ai_selection_requested") or metadata.get("template") == "ai-best-choice":
+        ai_selection_prefix = """🤖 **AI TEMPLATE SELECTION REQUESTED**
+
+IMPORTANT: The user has selected "AI Best Choice" which means you should:
+1. Analyze the project requirements below
+2. Determine the most suitable project template/architecture 
+3. Recommend and implement the optimal technology stack
+4. Apply industry best practices for this type of project
+5. Choose the most appropriate frameworks, libraries, and tools
+
+Based on the requirements analysis, select and implement the best template from these options:
+- React Web App (for modern frontend applications)
+- Vue.js Web App (for component-based frontend apps)
+- FastAPI Backend (for Python REST APIs)
+- Express.js API (for Node.js backends)
+- Desktop App (for cross-platform desktop applications)
+- Mobile App (for mobile applications)
+- Full-stack Web App (for complete web applications)
+- Data Analysis Project (for data science/analytics)
+- Or create a custom optimal architecture if none of the above fit perfectly
+
+"""
+    
+    prompt = f"""{ai_selection_prefix}🚀 **PROJECT GENERATION REQUEST**
 
 Create a complete {proj.get('type', 'application')} project based on these specifications:
 

@@ -246,8 +246,14 @@ class ProjectWizard {
                 <div class="form-group">
                     <label class="form-label">Project Templates</label>
                     <div class="feature-grid" id="templateOptions">
+                        <div class="feature-card" data-template="ai-best-choice">
+                            <input type="radio" name="template" value="ai-best-choice" style="display: none;" checked>
+                            <div class="feature-icon">🤖</div>
+                            <div class="feature-title">AI Best Choice</div>
+                            <div class="feature-description">Let AI analyze your requirements and select the optimal template</div>
+                        </div>
                         <div class="feature-card" data-template="blank">
-                            <input type="radio" name="template" value="blank" style="display: none;" checked>
+                            <input type="radio" name="template" value="blank" style="display: none;">
                             <div class="feature-icon">📝</div>
                             <div class="feature-title">Blank Project</div>
                             <div class="feature-description">Start from scratch with custom configuration</div>
@@ -747,6 +753,12 @@ class ProjectWizard {
     
     getTemplateBenefits(template) {
         const benefits = {
+            'ai-best-choice': {
+                title: 'AI Best Choice',
+                description: 'Let AI analyze your project requirements and automatically select the most suitable template and configuration.',
+                features: ['Intelligent template selection', 'Optimized for your specific needs', 'Best practices applied automatically', 'Technology stack recommendation', 'Architecture optimization'],
+                technologies: ['Determined by AI analysis', 'Based on requirements', 'Industry best practices']
+            },
             'blank': {
                 title: 'Blank Project',
                 description: 'Start completely from scratch with full customization control.',
@@ -895,8 +907,8 @@ class ProjectWizard {
         
         // Initialize template benefits for default selection
         setTimeout(() => {
-            this.updateTemplateBenefits('blank');
-            document.querySelector('[data-template="blank"]').classList.add('selected');
+            this.updateTemplateBenefits('ai-best-choice');
+            document.querySelector('[data-template="ai-best-choice"]').classList.add('selected');
         }, 100);
     }
     
@@ -1090,20 +1102,38 @@ class ProjectWizard {
         nextBtn.innerHTML = '<span class="loading-spinner"></span>Generating...';
         nextBtn.disabled = true;
         
+        this.addDebugAction('Starting project generation process');
+        
         try {
             // Compile all project data
             const fullProjectSpec = this.compileProjectSpecification();
+            this.addDebugAction(`Compiled project spec: ${JSON.stringify(fullProjectSpec).substring(0, 100)}...`);
+            this.updateDebugState('projectSpec', fullProjectSpec);
             
             // Send to AI for project generation
+            this.addDebugAction('Sending project specification to AI backend');
             await this.sendProjectToAI(fullProjectSpec);
             
             // Close wizard and show success message
+            this.addDebugAction('Project generation completed successfully');
             this.close();
             this.showSuccessMessage();
             
         } catch (error) {
+            this.addDebugAction(`Project generation failed: ${error.message}`);
             console.error('Project generation failed:', error);
-            alert('Failed to generate project. Please try again.');
+            
+            // More detailed error message
+            let errorMessage = 'Failed to generate project. ';
+            if (error.message.includes('fetch')) {
+                errorMessage += 'Network connection issue. Please check your connection and try again.';
+            } else if (error.message.includes('API')) {
+                errorMessage += 'API configuration issue. Please check your AI service settings.';
+            } else {
+                errorMessage += `Error: ${error.message}`;
+            }
+            
+            alert(errorMessage);
         } finally {
             nextBtn.innerHTML = originalText;
             nextBtn.disabled = false;
@@ -1117,7 +1147,8 @@ class ProjectWizard {
             metadata: {
                 timestamp: new Date().toISOString(),
                 wizard_version: "1.0",
-                template: this.projectData.template.template || 'blank'
+                template: this.projectData.template.template || 'ai-best-choice',
+                ai_selection_requested: this.projectData.template.template === 'ai-best-choice'
             },
             project: {
                 name: this.projectData.basic.projectName,
@@ -1158,6 +1189,8 @@ class ProjectWizard {
     
     async sendProjectToAI(projectSpec) {
         try {
+            this.addDebugAction('Making POST request to /api/projects/generate');
+            
             const response = await fetch('/api/projects/generate', {
                 method: 'POST',
                 headers: {
@@ -1169,12 +1202,20 @@ class ProjectWizard {
                 })
             });
             
+            this.addDebugAction(`Response status: ${response.status} ${response.statusText}`);
+            
             if (!response.ok) {
-                const errorData = await response.json();
-                throw new Error(errorData.detail || 'Failed to generate project');
+                let errorData;
+                try {
+                    errorData = await response.json();
+                } catch (parseError) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                throw new Error(errorData.detail || errorData.message || 'Failed to generate project');
             }
             
             const result = await response.json();
+            this.addDebugAction('Project generation request successful');
             console.log('Project generation started:', result);
             
             // Refresh file explorer to show new project
