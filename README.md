@@ -15,7 +15,7 @@ A sophisticated multi-agent system that combines GPT-4's strategic planning capa
 ## 🖼️ Screenshots
 
 ### 🌐 Web IDE Interface
-![MeistroCraft Web IDE](screenshot.png)
+<img width="1920" height="1080" alt="MeistroCraft Web IDE" src="https://github.com/user-attachments/assets/bfc7963f-955d-43ce-89b4-47c402947d49" />
 
 *Modern browser-based IDE with VS Code-style editing, real-time AI assistance, project management, and integrated terminal.*
 
