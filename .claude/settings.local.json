@@ -38,7 +38,8 @@
       "Bash(sudo mv:*)",
       "Bash(docker exec:*)",
       "Bash(docker logs:*)",
-      "Bash(docker restart:*)"
+      "Bash(docker restart:*)",
+      "Bash(flake8:*)"
     ],
     "deny": []
   }

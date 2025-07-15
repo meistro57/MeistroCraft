@@ -8,7 +8,6 @@ import os
 import sys
 import json
 import asyncio
-import logging
 from pathlib import Path
 from typing import Dict, Any, Optional, List
 from datetime import datetime, timedelta
@@ -38,16 +37,17 @@ app = FastAPI(
     version="2.0.0"
 )
 
+
 @app.on_event("startup")
 async def startup_event():
     """Initialize the application on startup."""
     print("🚀 Starting MeistroCraft IDE Web Server...")
-    
+
     # Ensure projects directory exists
     projects_dir = Path("projects")
     projects_dir.mkdir(exist_ok=True)
     print(f"📁 Projects directory: {projects_dir.resolve()}")
-    
+
     # Test backend initialization
     if session_manager.session_manager:
         print("✅ MeistroCraft backend ready")
@@ -64,14 +64,16 @@ app.add_middleware(
 )
 
 # Global state management
+
+
 class WebSessionManager:
     """Manages web-based interactive sessions."""
-    
+
     def __init__(self):
         self.sessions: Dict[str, str] = {}  # web_session_id -> meistrocraft_session_id
         self.websockets: Dict[str, WebSocket] = {}
         self.task_queue = get_task_queue()
-        
+
         # Initialize MeistroCraft components
         try:
             self.config = load_config()
@@ -84,45 +86,47 @@ class WebSessionManager:
             self.config = None
             self.session_manager = None
             self.token_tracker = None
-        
+
     async def create_session(self, session_id: str, config: Dict[str, Any] = None) -> str:
         """Create a new MeistroCraft session for web interface."""
         if session_id in self.sessions:
-            print(f"🔄 Reusing existing MeistroCraft session {self.sessions[session_id][:8]} for web session {session_id[:8]}")
+            print(
+                f"🔄 Reusing existing MeistroCraft session {self.sessions[session_id][:8]} for web session {session_id[:8]}")
             return self.sessions[session_id]
-        
+
         if not self.session_manager:
             raise Exception("MeistroCraft backend not initialized")
-            
+
         # Create a new MeistroCraft session
         meistrocraft_session_id = self.session_manager.create_session(
             name=f"Web Session {session_id[:8]}",
             task_description="Web IDE session"
         )
-        
+
         self.sessions[session_id] = meistrocraft_session_id
         print(f"🌐 Created NEW MeistroCraft session {meistrocraft_session_id[:8]} for web session {session_id[:8]}")
         return meistrocraft_session_id
-        
+
     async def get_session(self, session_id: str) -> Optional[InteractiveSession]:
         """Get existing session."""
         return self.sessions.get(session_id)
-    
+
     async def get_or_create_session(self, session_id: str) -> str:
         """Get existing session or create new one if it doesn't exist."""
         if session_id in self.sessions:
             return self.sessions[session_id]
         else:
             return await self.create_session(session_id)
-        
+
     async def register_websocket(self, session_id: str, websocket: WebSocket):
         """Register WebSocket connection for session."""
         self.websockets[session_id] = websocket
-        
+
     async def unregister_websocket(self, session_id: str):
         """Unregister WebSocket connection."""
         if session_id in self.websockets:
             del self.websockets[session_id]
+
 
 # Global session manager
 session_manager = WebSessionManager()
@@ -131,10 +135,12 @@ session_manager = WebSessionManager()
 templates = Jinja2Templates(directory="templates")
 app.mount("/static", StaticFiles(directory="static"), name="static")
 
+
 @app.get("/", response_class=HTMLResponse)
 async def serve_ide(request: Request):
     """Serve the main IDE interface."""
     return templates.TemplateResponse("ide.html", {"request": request})
+
 
 @app.get("/health")
 async def health_check():
@@ -145,15 +151,18 @@ async def health_check():
         "version": "2.0.0"
     }
 
+
 @app.get("/MeistroCraft_logo.ico")
 async def serve_favicon():
     """Serve the favicon."""
     return FileResponse("MeistroCraft_logo.ico", media_type="image/x-icon")
 
+
 @app.get("/MeistroCraft_logo.png")
 async def serve_logo():
     """Serve the PNG logo."""
     return FileResponse("MeistroCraft_logo.png", media_type="image/png")
+
 
 @app.post("/api/sessions")
 async def create_session(request: Request):
@@ -161,14 +170,15 @@ async def create_session(request: Request):
     body = await request.json()
     session_id = body.get("session_id", f"web-{datetime.now().timestamp()}")
     config = body.get("config", {})
-    
+
     session = await session_manager.create_session(session_id, config)
-    
+
     return {
         "session_id": session_id,
         "status": "created",
         "timestamp": datetime.now().isoformat()
     }
+
 
 @app.get("/api/sessions")
 async def list_sessions():
@@ -176,10 +186,10 @@ async def list_sessions():
     try:
         if not session_manager.session_manager:
             raise HTTPException(status_code=503, detail="Backend not initialized")
-        
+
         # Get real sessions from MeistroCraft
         sessions_data = session_manager.session_manager.list_sessions()
-        
+
         sessions = []
         for session in sessions_data[:10]:  # Limit to 10 recent sessions
             sessions.append({
@@ -190,7 +200,7 @@ async def list_sessions():
                 "task_count": session["task_count"],
                 "status": "active" if session["task_count"] > 0 else "inactive"
             })
-        
+
         return {
             "sessions": sessions,
             "total": len(sessions)
@@ -198,13 +208,14 @@ async def list_sessions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.put("/api/sessions/{session_id}")
 async def update_session(session_id: str, request: Request):
     """Update session information."""
     try:
         body = await request.json()
         name = body.get("name")
-        
+
         # Mock update - in real implementation would use session_manager
         return {
             "session_id": session_id,
@@ -214,6 +225,7 @@ async def update_session(session_id: str, request: Request):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.delete("/api/sessions/{session_id}")
 async def delete_session(session_id: str):
@@ -227,6 +239,7 @@ async def delete_session(session_id: str):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/settings")
 async def get_settings():
@@ -255,6 +268,7 @@ async def get_settings():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/settings")
 async def save_settings(request: Request):
     """Save user settings."""
@@ -267,6 +281,7 @@ async def save_settings(request: Request):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/config")
 async def get_api_config():
@@ -289,7 +304,7 @@ async def get_api_config():
                 "status": "not_configured"
             }
         }
-        
+
         if session_manager.config and isinstance(session_manager.config, dict):
             # Check OpenAI configuration
             openai_key = session_manager.config.get("openai_api_key")
@@ -297,34 +312,36 @@ async def get_api_config():
                 config_status["openai"]["configured"] = True
                 config_status["openai"]["model"] = session_manager.config.get("openai_model", "gpt-4")
                 config_status["openai"]["status"] = "configured"
-            
+
             # Check Anthropic configuration
             anthropic_key = session_manager.config.get("anthropic_api_key")
-            if anthropic_key and not anthropic_key.startswith("sk-ant-your-") and anthropic_key != "<YOUR_ANTHROPIC_API_KEY>":
+            if anthropic_key and not anthropic_key.startswith(
+                    "sk-ant-your-") and anthropic_key != "<YOUR_ANTHROPIC_API_KEY>":
                 config_status["anthropic"]["configured"] = True
                 config_status["anthropic"]["model"] = session_manager.config.get("claude_model", "claude-3-sonnet")
                 config_status["anthropic"]["status"] = "configured"
-            
+
             # Check GitHub configuration
             github_key = session_manager.config.get("github_api_key")
             if github_key and not github_key.startswith("ghp_your-") and github_key != "<YOUR_GITHUB_API_KEY>":
                 config_status["github"]["configured"] = True
                 config_status["github"]["status"] = "configured"
-        
+
         return config_status
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/config")
 async def save_api_config(request: Request):
     """Save API configuration."""
     try:
         body = await request.json()
-        
+
         # Load current config
         try:
             current_config = load_config()
-        except:
+        except BaseException:
             # If config doesn't exist, create a new one
             current_config = {
                 "anthropic_api_key": "<YOUR_ANTHROPIC_API_KEY>",
@@ -339,7 +356,7 @@ async def save_api_config(request: Request):
                     "monthly_limit": 50.0
                 }
             }
-        
+
         # Update config with new values
         if body.get("openai_api_key"):
             current_config["openai_api_key"] = body["openai_api_key"]
@@ -351,20 +368,21 @@ async def save_api_config(request: Request):
             current_config["openai_model"] = body["openai_model"]
         if body.get("claude_model"):
             current_config["claude_model"] = body["claude_model"]
-        
+
         # Save config to file
         save_config(current_config)
-        
+
         # Update session manager config
         session_manager.config = current_config
         setup_environment(current_config)
-        
+
         return {
             "status": "success",
             "message": "API configuration saved successfully"
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/test-api-key")
 async def test_api_key(request: Request):
@@ -373,10 +391,10 @@ async def test_api_key(request: Request):
         body = await request.json()
         provider = body.get("provider")  # "openai", "anthropic", or "github"
         api_key = body.get("api_key")
-        
+
         if not provider or not api_key:
             raise HTTPException(status_code=400, detail="Provider and API key required")
-        
+
         if provider == "github":
             # Test GitHub API key
             try:
@@ -386,7 +404,7 @@ async def test_api_key(request: Request):
                     "Accept": "application/vnd.github.v3+json"
                 }
                 response = requests.get("https://api.github.com/user", headers=headers, timeout=10)
-                
+
                 if response.status_code == 200:
                     try:
                         user_data = response.json()
@@ -395,9 +413,9 @@ async def test_api_key(request: Request):
                             return {
                                 "provider": provider,
                                 "status": "invalid",
-                                "message": f"Unexpected response format. Expected dict, got {type(user_data).__name__}: {str(user_data)[:100]}"
-                            }
-                        
+                                "message": f"Unexpected response format. Expected dict, "
+                                          f"got {type(user_data).__name__}: {str(user_data)[:100]}"}
+
                         login = user_data.get('login', 'Unknown user')
                         return {
                             "provider": provider,
@@ -441,7 +459,7 @@ async def test_api_key(request: Request):
                     "status": "invalid",
                     "message": str(e)
                 }
-        
+
         elif provider == "anthropic":
             # Test Anthropic API key
             try:
@@ -451,21 +469,21 @@ async def test_api_key(request: Request):
                     "anthropic-version": "2023-06-01",
                     "content-type": "application/json"
                 }
-                
+
                 # Simple test call to check key validity
                 test_data = {
                     "model": "claude-3-haiku-20240307",
                     "max_tokens": 10,
                     "messages": [{"role": "user", "content": "Hi"}]
                 }
-                
+
                 response = requests.post(
                     "https://api.anthropic.com/v1/messages",
                     headers=headers,
                     json=test_data,
                     timeout=30
                 )
-                
+
                 if response.status_code == 200:
                     return {
                         "provider": provider,
@@ -484,23 +502,26 @@ async def test_api_key(request: Request):
                     "status": "invalid",
                     "message": str(e)
                 }
-        
+
         else:
             raise HTTPException(status_code=400, detail="Unsupported provider")
-            
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/github/repositories")
 async def get_github_repositories():
     """Get user's GitHub repositories."""
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(
+                session_manager.config,
+                dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config["github_api_key"])
-        
+
         repositories = client.list_repositories()
         return {
             "repositories": repositories,
@@ -509,43 +530,50 @@ async def get_github_repositories():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/github/repository")
 async def create_github_repository(request: Request):
     """Create a new GitHub repository."""
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(
+                session_manager.config,
+                dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
-        
+
         body = await request.json()
         name = body.get("name")
         description = body.get("description", "")
         private = body.get("private", False)
-        
+
         if not name:
             raise HTTPException(status_code=400, detail="Repository name is required")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config["github_api_key"])
-        
+
         repository = client.create_repository(name, description, private)
         return repository
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/github/repository/{owner}/{repo}/fork")
 async def fork_github_repository(owner: str, repo: str):
     """Fork a GitHub repository."""
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(
+                session_manager.config,
+                dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config["github_api_key"])
-        
+
         fork = client.fork_repository(owner, repo)
         return fork
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/github/repository/{owner}/{repo}/contents")
 async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
@@ -555,19 +583,21 @@ async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
         # Debug the config type
         print(f"DEBUG: session_manager.config type: {type(session_manager.config)}")
         print(f"DEBUG: session_manager.config value: {session_manager.config}")
-        
+
         if not session_manager.config:
             raise HTTPException(status_code=400, detail="Configuration not available")
-        
+
         if not isinstance(session_manager.config, dict):
-            raise HTTPException(status_code=400, detail=f"Configuration is not a dictionary, got {type(session_manager.config).__name__}")
-        
+            raise HTTPException(
+                status_code=400,
+                detail=f"Configuration is not a dictionary, got {type(session_manager.config).__name__}")
+
         if not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured in dictionary")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config)
-        
+
         # List directory contents
         import requests
         url = f"https://api.github.com/repos/{owner}/{repo}/contents/{path}"
@@ -575,7 +605,7 @@ async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
             "Authorization": f"token {session_manager.config['github_api_key']}",
             "Accept": "application/vnd.github.v3+json"
         }
-        
+
         response = requests.get(url, headers=headers)
         if response.status_code == 200:
             return response.json()
@@ -584,109 +614,121 @@ async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/github/repository/{owner}/{repo}/file")
 async def get_github_file(owner: str, repo: str, path: str):
     """Get a specific file from GitHub repository."""
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(
+                session_manager.config,
+                dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config["github_api_key"])
-        
+
         file_data = client.get_file_content(owner, repo, path)
         return file_data
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/github/repository/{owner}/{repo}/file")
 async def create_github_file(owner: str, repo: str, request: Request):
     """Create a new file in GitHub repository."""
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(
+                session_manager.config,
+                dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
-        
+
         body = await request.json()
         path = body.get("path")
         content = body.get("content")
         message = body.get("message", f"Create {path}")
         branch = body.get("branch", "main")
-        
+
         if not path or content is None:
             raise HTTPException(status_code=400, detail="Path and content are required")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config["github_api_key"])
-        
+
         result = client.create_file(owner, repo, path, content, message, branch)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.put("/api/github/repository/{owner}/{repo}/file")
 async def update_github_file(owner: str, repo: str, request: Request):
     """Update an existing file in GitHub repository."""
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(
+                session_manager.config,
+                dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
-        
+
         body = await request.json()
         path = body.get("path")
         content = body.get("content")
         message = body.get("message", f"Update {path}")
         sha = body.get("sha")
         branch = body.get("branch", "main")
-        
+
         if not path or content is None or not sha:
             raise HTTPException(status_code=400, detail="Path, content, and SHA are required")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config["github_api_key"])
-        
+
         result = client.update_file(owner, repo, path, content, message, sha, branch)
         return result
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/github/sync-project")
 async def sync_project_to_github(request: Request):
     """Sync current project to GitHub repository."""
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
+        if not session_manager.config or not isinstance(
+                session_manager.config,
+                dict) or not session_manager.config.get("github_api_key"):
             raise HTTPException(status_code=400, detail="GitHub API key not configured")
-        
+
         body = await request.json()
         owner = body.get("owner")
         repo = body.get("repo")
         project_path = body.get("project_path")
         branch = body.get("branch", "main")
-        
+
         if not owner or not repo or not project_path:
             raise HTTPException(status_code=400, detail="Owner, repo, and project_path are required")
-        
+
         # Check if project path exists and is within projects directory
         import os
         full_project_path = os.path.join(os.getcwd(), "projects", project_path)
         if not os.path.exists(full_project_path):
             raise HTTPException(status_code=404, detail="Project path not found")
-        
+
         from github_client import GitHubClient
         client = GitHubClient(session_manager.config["github_api_key"])
-        
+
         synced_files = []
         failed_files = []
-        
+
         # Walk through project directory and sync files
         for root, dirs, files in os.walk(full_project_path):
             for file in files:
                 local_file_path = os.path.join(root, file)
                 relative_path = os.path.relpath(local_file_path, full_project_path)
-                
+
                 try:
                     # Read local file content
                     with open(local_file_path, 'r', encoding='utf-8') as f:
                         content = f.read()
-                    
+
                     # Try to get existing file from GitHub
                     try:
                         existing_file = client.get_file_content(owner, repo, relative_path, branch)
@@ -711,13 +753,13 @@ async def sync_project_to_github(request: Request):
                             "action": "created",
                             "sha": result["content"]["sha"]
                         })
-                        
+
                 except Exception as e:
                     failed_files.append({
                         "path": relative_path,
                         "error": str(e)
                     })
-        
+
         return {
             "synced_files": synced_files,
             "failed_files": failed_files,
@@ -727,18 +769,20 @@ async def sync_project_to_github(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/sessions/{session_id}")
 async def get_session_info(session_id: str):
     """Get session information."""
     session = await session_manager.get_session(session_id)
     if not session:
         raise HTTPException(status_code=404, detail="Session not found")
-    
+
     return {
         "session_id": session_id,
         "status": "active",
         "timestamp": datetime.now().isoformat()
     }
+
 
 @app.post("/api/projects/generate")
 async def generate_project(request: Request):
@@ -747,20 +791,20 @@ async def generate_project(request: Request):
         body = await request.json()
         project_spec = body.get("project_spec", {})
         session_id = body.get("session_id")
-        
+
         if not project_spec:
             raise HTTPException(status_code=400, detail="Project specification required")
-        
+
         # Ensure we have a MeistroCraft session
         meistrocraft_session_id = await session_manager.get_or_create_session(session_id or f"project-{datetime.now().timestamp()}")
-        
+
         # Get session data for project folder
         session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
         project_folder = session_data.get("project_folder") if session_data else None
-        
+
         # Create project generation task
         project_prompt = create_project_generation_prompt(project_spec)
-        
+
         # Generate task with GPT-4
         task = generate_task_with_gpt4(
             project_prompt,
@@ -769,10 +813,10 @@ async def generate_project(request: Request):
             session_manager.token_tracker,
             meistrocraft_session_id
         )
-        
+
         if not task:
             raise HTTPException(status_code=500, detail="Failed to generate project task")
-        
+
         # Execute with Claude
         result = run_claude_task(
             task,
@@ -782,11 +826,11 @@ async def generate_project(request: Request):
             project_folder,
             session_manager.token_tracker
         )
-        
+
         if result.get("success"):
             # Save to session
             session_manager.session_manager.add_task_to_session(meistrocraft_session_id, task, result)
-            
+
             return {
                 "success": True,
                 "project_id": meistrocraft_session_id,
@@ -795,10 +839,12 @@ async def generate_project(request: Request):
                 "timestamp": datetime.now().isoformat()
             }
         else:
-            raise HTTPException(status_code=500, detail=f"Project generation failed: {result.get('error', 'Unknown error')}")
-            
+            raise HTTPException(status_code=500,
+                                detail=f"Project generation failed: {result.get('error', 'Unknown error')}")
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 def create_project_generation_prompt(project_spec: Dict[str, Any]) -> str:
     """Create a comprehensive prompt for project generation."""
@@ -808,7 +854,7 @@ def create_project_generation_prompt(project_spec: Dict[str, Any]) -> str:
     requirements = project_spec.get("requirements", {})
     options = project_spec.get("generation_options", {})
     metadata = project_spec.get("metadata", {})
-    
+
     # Handle AI Best Choice template selection
     ai_selection_prefix = ""
     if metadata.get("ai_selection_requested") or metadata.get("template") == "ai-best-choice":
@@ -816,7 +862,7 @@ def create_project_generation_prompt(project_spec: Dict[str, Any]) -> str:
 
 IMPORTANT: The user has selected "AI Best Choice" which means you should:
 1. Analyze the project requirements below
-2. Determine the most suitable project template/architecture 
+2. Determine the most suitable project template/architecture
 3. Recommend and implement the optimal technology stack
 4. Apply industry best practices for this type of project
 5. Choose the most appropriate frameworks, libraries, and tools
@@ -833,7 +879,7 @@ Based on the requirements analysis, select and implement the best template from 
 - Or create a custom optimal architecture if none of the above fit perfectly
 
 """
-    
+
     prompt = f"""{ai_selection_prefix}🚀 **PROJECT GENERATION REQUEST**
 
 Create a complete {proj.get('type', 'application')} project based on these specifications:
@@ -864,7 +910,7 @@ Create a complete {proj.get('type', 'application')} project based on these speci
 
 ## Generation Instructions
 """
-    
+
     if options.get('generate_structure'):
         prompt += "✅ Generate complete project structure with proper folder organization\n"
     if options.get('generate_boilerplate'):
@@ -873,10 +919,10 @@ Create a complete {proj.get('type', 'application')} project based on these speci
         prompt += "✅ Generate comprehensive documentation (README, API docs, etc.)\n"
     if options.get('generate_tests'):
         prompt += "✅ Create test templates and example tests\n"
-    
+
     if options.get('final_instructions'):
         prompt += f"\n## Additional Instructions\n{options['final_instructions']}\n"
-    
+
     prompt += """
 Please create a complete, functional project foundation that:
 1. Follows industry best practices and conventions
@@ -886,8 +932,9 @@ Please create a complete, functional project foundation that:
 5. Includes clear setup and usage instructions
 
 Start with the project structure, implement core functionality, and provide detailed documentation."""
-    
+
     return prompt
+
 
 @app.get("/api/projects")
 async def list_projects():
@@ -896,19 +943,20 @@ async def list_projects():
         projects_root = Path("projects").resolve()
         if not projects_root.exists():
             return []
-        
+
         projects = []
         for project_dir in projects_root.iterdir():
             if project_dir.is_dir():
                 project_data = await analyze_project_folder(project_dir)
                 projects.append(project_data)
-        
+
         # Sort by last modified
         projects.sort(key=lambda x: x.get('modified', ''), reverse=True)
         return projects
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/projects/{project_path:path}/stats")
 async def get_project_stats(project_path: str):
@@ -916,21 +964,22 @@ async def get_project_stats(project_path: str):
     try:
         projects_root = Path("projects").resolve()
         full_path = (projects_root / project_path).resolve()
-        
+
         # Security check
         try:
             full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
+
         stats = await calculate_project_stats(full_path)
         return stats
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/projects/{project_path:path}/details")
 async def get_project_details(project_path: str):
@@ -938,21 +987,22 @@ async def get_project_details(project_path: str):
     try:
         projects_root = Path("projects").resolve()
         full_path = (projects_root / project_path).resolve()
-        
+
         # Security check
         try:
             full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
+
         details = await get_detailed_project_info(full_path)
         return details
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.put("/api/projects/{project_path:path}/status")
 async def update_project_status(project_path: str, request: Request):
@@ -960,29 +1010,30 @@ async def update_project_status(project_path: str, request: Request):
     try:
         body = await request.json()
         new_status = body.get("status")
-        
+
         if new_status not in ["active", "archived", "deleted"]:
             raise HTTPException(status_code=400, detail="Invalid status")
-        
+
         projects_root = Path("projects").resolve()
         full_path = (projects_root / project_path).resolve()
-        
+
         # Security check
         try:
             full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
+
         # Update project metadata
         await update_project_metadata(full_path, {"status": new_status, "modified": datetime.now().isoformat()})
-        
+
         return {"success": True, "status": new_status}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.delete("/api/projects/{project_path:path}")
 async def delete_project(project_path: str):
@@ -990,24 +1041,25 @@ async def delete_project(project_path: str):
     try:
         projects_root = Path("projects").resolve()
         full_path = (projects_root / project_path).resolve()
-        
+
         # Security check
         try:
             full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
+
         # Remove the entire project directory
         import shutil
         shutil.rmtree(full_path)
-        
+
         return {"success": True, "message": "Project deleted successfully"}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/projects/duplicate")
 async def duplicate_project(request: Request):
@@ -1016,30 +1068,30 @@ async def duplicate_project(request: Request):
         body = await request.json()
         source_path = body.get("source_path")
         new_name = body.get("new_name")
-        
+
         if not source_path or not new_name:
             raise HTTPException(status_code=400, detail="Source path and new name required")
-        
+
         projects_root = Path("projects").resolve()
         source_full_path = (projects_root / source_path).resolve()
         target_full_path = projects_root / new_name
-        
+
         # Security checks
         try:
             source_full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not source_full_path.exists():
             raise HTTPException(status_code=404, detail="Source project not found")
-        
+
         if target_full_path.exists():
             raise HTTPException(status_code=409, detail="Project with that name already exists")
-        
+
         # Copy the project
         import shutil
         shutil.copytree(source_full_path, target_full_path)
-        
+
         # Update metadata in the new project
         await update_project_metadata(target_full_path, {
             "name": new_name,
@@ -1047,11 +1099,12 @@ async def duplicate_project(request: Request):
             "modified": datetime.now().isoformat(),
             "status": "active"
         })
-        
+
         return {"success": True, "new_path": str(target_full_path)}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/projects/{project_path:path}/export")
 async def export_project(project_path: str):
@@ -1059,38 +1112,39 @@ async def export_project(project_path: str):
     try:
         projects_root = Path("projects").resolve()
         full_path = (projects_root / project_path).resolve()
-        
+
         # Security check
         try:
             full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
+
         # Create temporary ZIP file
         import tempfile
         import zipfile
-        
+
         temp_dir = tempfile.mkdtemp()
         zip_path = Path(temp_dir) / f"{full_path.name}.zip"
-        
+
         with zipfile.ZipFile(zip_path, 'w', zipfile.ZIP_DEFLATED) as zipf:
             for file_path in full_path.rglob('*'):
                 if file_path.is_file():
                     arcname = file_path.relative_to(full_path)
                     zipf.write(file_path, arcname)
-        
+
         # Return the ZIP file
         return FileResponse(
             path=zip_path,
             filename=f"{full_path.name}.zip",
             media_type="application/zip"
         )
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/projects/import")
 async def import_project(request: Request):
@@ -1099,35 +1153,35 @@ async def import_project(request: Request):
         # Handle file upload
         form = await request.form()
         file = form.get("project_file")
-        
+
         if not file:
             raise HTTPException(status_code=400, detail="No file provided")
-        
+
         # Save uploaded file temporarily
         import tempfile
         import zipfile
-        
+
         temp_dir = tempfile.mkdtemp()
         zip_path = Path(temp_dir) / file.filename
-        
+
         with open(zip_path, "wb") as f:
             content = await file.read()
             f.write(content)
-        
+
         # Extract to projects directory
         projects_root = Path("projects").resolve()
         project_name = file.filename.replace('.zip', '')
         target_path = projects_root / project_name
-        
+
         if target_path.exists():
             raise HTTPException(status_code=409, detail="Project already exists")
-        
+
         with zipfile.ZipFile(zip_path, 'r') as zipf:
             zipf.extractall(target_path)
-        
+
         # Clean up temp file
         zip_path.unlink()
-        
+
         # Update project metadata
         await update_project_metadata(target_path, {
             "name": project_name,
@@ -1135,13 +1189,14 @@ async def import_project(request: Request):
             "modified": datetime.now().isoformat(),
             "status": "active"
         })
-        
+
         return {"success": True, "project_path": str(target_path)}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
 # Claude-Squad Integration Endpoints
+
 
 @app.get("/api/squad/status")
 async def get_squad_status():
@@ -1151,6 +1206,7 @@ async def get_squad_status():
         return status
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/squad/install")
 async def install_squad():
@@ -1163,6 +1219,7 @@ async def install_squad():
             raise HTTPException(status_code=500, detail=result["error"])
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.get("/api/squad/sessions")
 async def list_squad_sessions():
@@ -1187,6 +1244,7 @@ async def list_squad_sessions():
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/squad/sessions")
 async def create_squad_session(request: Request):
     """Create a new claude-squad session."""
@@ -1196,23 +1254,23 @@ async def create_squad_session(request: Request):
         agent_type = body.get("agent_type", "claude-code")
         session_name = body.get("session_name")
         auto_accept = body.get("auto_accept", False)
-        
+
         if not project_path:
             raise HTTPException(status_code=400, detail="Project path is required")
-        
+
         # Validate agent type
         try:
             agent_enum = SquadAgentType(agent_type)
         except ValueError:
             raise HTTPException(status_code=400, detail=f"Invalid agent type: {agent_type}")
-        
+
         session = await squad_bridge.create_session(
             project_path=project_path,
             agent_type=agent_enum,
             session_name=session_name,
             auto_accept=auto_accept
         )
-        
+
         return {
             "success": True,
             "session": {
@@ -1225,7 +1283,7 @@ async def create_squad_session(request: Request):
                 "tmux_session": session.tmux_session
             }
         }
-        
+
     except Exception as e:
         if "SquadInstallationError" in str(type(e)):
             raise HTTPException(status_code=503, detail="Claude-squad not installed")
@@ -1234,6 +1292,7 @@ async def create_squad_session(request: Request):
         else:
             raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/squad/sessions/{session_id}/execute")
 async def execute_squad_command(session_id: str, request: Request):
     """Execute a command in a squad session."""
@@ -1241,23 +1300,24 @@ async def execute_squad_command(session_id: str, request: Request):
         body = await request.json()
         command = body.get("command")
         timeout = body.get("timeout", 300)
-        
+
         if not command:
             raise HTTPException(status_code=400, detail="Command is required")
-        
+
         result = await squad_bridge.execute_command(
             session_id=session_id,
             command=command,
             timeout=timeout
         )
-        
+
         return result
-        
+
     except Exception as e:
         if "SquadSessionError" in str(type(e)):
             raise HTTPException(status_code=404, detail=str(e))
         else:
             raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.delete("/api/squad/sessions/{session_id}")
 async def terminate_squad_session(session_id: str):
@@ -1271,6 +1331,7 @@ async def terminate_squad_session(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/squad/sessions/{session_id}/status")
 async def get_squad_session_status(session_id: str):
     """Get detailed status of a squad session."""
@@ -1283,22 +1344,23 @@ async def get_squad_session_status(session_id: str):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.post("/api/projects/{project_path:path}/git/init")
 async def initialize_git(project_path: str):
     """Initialize Git repository for project."""
     try:
         projects_root = Path("projects").resolve()
         full_path = (projects_root / project_path).resolve()
-        
+
         # Security check
         try:
             full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
+
         # Initialize git repository
         import subprocess
         result = subprocess.run(
@@ -1307,10 +1369,10 @@ async def initialize_git(project_path: str):
             capture_output=True,
             text=True
         )
-        
+
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"Git init failed: {result.stderr}")
-        
+
         # Create initial commit
         subprocess.run(["git", "add", "."], cwd=full_path, capture_output=True)
         subprocess.run(
@@ -1318,17 +1380,18 @@ async def initialize_git(project_path: str):
             cwd=full_path,
             capture_output=True
         )
-        
+
         # Update project metadata
         await update_project_metadata(full_path, {
             "git": {"initialized": True, "branch": "main"},
             "modified": datetime.now().isoformat()
         })
-        
+
         return {"success": True, "message": "Git repository initialized"}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/projects/{project_path:path}/git/push")
 async def push_to_git(project_path: str, request: Request):
@@ -1337,32 +1400,32 @@ async def push_to_git(project_path: str, request: Request):
         body = await request.json()
         remote_url = body.get("remote_url")
         branch = body.get("branch", "main")
-        
+
         if not remote_url:
             raise HTTPException(status_code=400, detail="Remote URL required")
-        
+
         projects_root = Path("projects").resolve()
         full_path = (projects_root / project_path).resolve()
-        
+
         # Security check
         try:
             full_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied")
-        
+
         if not full_path.exists():
             raise HTTPException(status_code=404, detail="Project not found")
-        
+
         # Add remote and push
         import subprocess
-        
+
         # Add remote origin
         subprocess.run(
             ["git", "remote", "add", "origin", remote_url],
             cwd=full_path,
             capture_output=True
         )
-        
+
         # Push to remote
         result = subprocess.run(
             ["git", "push", "-u", "origin", branch],
@@ -1370,10 +1433,10 @@ async def push_to_git(project_path: str, request: Request):
             capture_output=True,
             text=True
         )
-        
+
         if result.returncode != 0:
             raise HTTPException(status_code=500, detail=f"Git push failed: {result.stderr}")
-        
+
         # Update project metadata
         await update_project_metadata(full_path, {
             "git": {
@@ -1383,11 +1446,12 @@ async def push_to_git(project_path: str, request: Request):
             },
             "modified": datetime.now().isoformat()
         })
-        
+
         return {"success": True, "message": "Pushed to repository successfully"}
-        
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 async def analyze_project_folder(project_path: Path) -> Dict[str, Any]:
     """Analyze a project folder and return metadata."""
@@ -1395,26 +1459,26 @@ async def analyze_project_folder(project_path: Path) -> Dict[str, Any]:
         # Try to load existing metadata
         metadata_file = project_path / ".meistrocraft" / "project.json"
         metadata = {}
-        
+
         if metadata_file.exists():
             try:
                 with open(metadata_file, 'r') as f:
                     metadata = json.load(f)
             except json.JSONDecodeError:
                 pass
-        
+
         # Get basic info
         stat = project_path.stat()
-        
+
         # Detect technologies
         technologies = await detect_project_technologies(project_path)
-        
+
         # Get Git info
         git_info = await get_git_info(project_path)
-        
+
         # Calculate stats
         stats = await calculate_project_stats(project_path)
-        
+
         return {
             "id": generate_project_id(str(project_path)),
             "name": metadata.get("name", project_path.name),
@@ -1429,7 +1493,7 @@ async def analyze_project_folder(project_path: Path) -> Dict[str, Any]:
             "stats": stats,
             "metadata": metadata
         }
-        
+
     except Exception as e:
         print(f"Error analyzing project {project_path}: {e}")
         return {
@@ -1447,10 +1511,11 @@ async def analyze_project_folder(project_path: Path) -> Dict[str, Any]:
             "metadata": {}
         }
 
+
 async def detect_project_technologies(project_path: Path) -> List[str]:
     """Detect technologies used in a project."""
     technologies = []
-    
+
     # Check for common config files
     config_files = {
         "package.json": "Node.js",
@@ -1469,7 +1534,7 @@ async def detect_project_technologies(project_path: Path) -> List[str]:
         "*.csproj": "C#",
         "*.sln": "C#"
     }
-    
+
     for config_file, tech in config_files.items():
         if "*" in config_file:
             # Handle wildcard patterns
@@ -1481,7 +1546,7 @@ async def detect_project_technologies(project_path: Path) -> List[str]:
         else:
             if (project_path / config_file).exists():
                 technologies.append(tech)
-    
+
     # Check for common framework indicators
     if (project_path / "src" / "App.js").exists() or (project_path / "src" / "App.tsx").exists():
         technologies.append("React")
@@ -1493,8 +1558,9 @@ async def detect_project_technologies(project_path: Path) -> List[str]:
         technologies.append("Django")
     if (project_path / "app.py").exists() or (project_path / "main.py").exists():
         technologies.append("Flask/FastAPI")
-    
+
     return list(set(technologies))  # Remove duplicates
+
 
 def detect_project_type(project_path: Path) -> str:
     """Detect the type of project."""
@@ -1510,41 +1576,42 @@ def detect_project_type(project_path: Path) -> str:
         except (FileNotFoundError, json.JSONDecodeError, KeyError):
             pass
         return "web-app"
-    
+
     if (project_path / "requirements.txt").exists() or (project_path / "pyproject.toml").exists():
         if any(project_path.rglob("*.ipynb")):
             return "data-analysis"
         if (project_path / "app.py").exists() or (project_path / "main.py").exists():
             return "api-service"
         return "automation-script"
-    
+
     if (project_path / "Cargo.toml").exists():
         return "library-tool"
-    
+
     if (project_path / "pom.xml").exists() or (project_path / "build.gradle").exists():
         return "desktop-app"
-    
+
     return "other"
+
 
 async def get_git_info(project_path: Path) -> Dict[str, Any]:
     """Get Git repository information."""
     git_dir = project_path / ".git"
-    
+
     if not git_dir.exists():
         return {"initialized": False}
-    
+
     try:
         import subprocess
-        
+
         # Get current branch
         branch_result = subprocess.run(
-            ["git", "rev-parse", "--abbrev-ref", "HEAD"],
+            ["git", "rev-parse", "--abbrev-re", "HEAD"],
             cwd=project_path,
             capture_output=True,
             text=True
         )
         branch = branch_result.stdout.strip() if branch_result.returncode == 0 else "main"
-        
+
         # Get remote URL
         remote_result = subprocess.run(
             ["git", "remote", "get-url", "origin"],
@@ -1553,7 +1620,7 @@ async def get_git_info(project_path: Path) -> Dict[str, Any]:
             text=True
         )
         remote = remote_result.stdout.strip() if remote_result.returncode == 0 else None
-        
+
         # Get commit count
         count_result = subprocess.run(
             ["git", "rev-list", "--count", "HEAD"],
@@ -1562,23 +1629,24 @@ async def get_git_info(project_path: Path) -> Dict[str, Any]:
             text=True
         )
         commits = int(count_result.stdout.strip()) if count_result.returncode == 0 else 0
-        
+
         return {
             "initialized": True,
             "branch": branch,
             "remote": remote,
             "commits": commits
         }
-        
+
     except Exception:
         return {"initialized": True}
+
 
 async def calculate_project_stats(project_path: Path) -> Dict[str, Any]:
     """Calculate project statistics."""
     try:
         file_count = 0
         total_size = 0
-        
+
         for file_path in project_path.rglob("*"):
             if file_path.is_file():
                 file_count += 1
@@ -1586,23 +1654,24 @@ async def calculate_project_stats(project_path: Path) -> Dict[str, Any]:
                     total_size += file_path.stat().st_size
                 except (OSError, PermissionError):
                     pass
-        
+
         return {
             "files": file_count,
             "size": total_size
         }
-        
+
     except Exception:
         return {"files": 0, "size": 0}
+
 
 async def update_project_metadata(project_path: Path, updates: Dict[str, Any]):
     """Update project metadata file."""
     try:
         metadata_dir = project_path / ".meistrocraft"
         metadata_dir.mkdir(exist_ok=True)
-        
+
         metadata_file = metadata_dir / "project.json"
-        
+
         # Load existing metadata
         metadata = {}
         if metadata_file.exists():
@@ -1611,23 +1680,24 @@ async def update_project_metadata(project_path: Path, updates: Dict[str, Any]):
                     metadata = json.load(f)
             except json.JSONDecodeError:
                 pass
-        
+
         # Apply updates
         metadata.update(updates)
-        
+
         # Save metadata
         with open(metadata_file, 'w') as f:
             json.dump(metadata, f, indent=2)
-            
+
     except Exception as e:
         print(f"Failed to update project metadata: {e}")
+
 
 async def get_detailed_project_info(project_path: Path) -> Dict[str, Any]:
     """Get detailed project information."""
     try:
         # Get basic project info
         project_data = await analyze_project_folder(project_path)
-        
+
         # Add additional details
         recent_files = []
         for file_path in project_path.rglob("*"):
@@ -1642,21 +1712,23 @@ async def get_detailed_project_info(project_path: Path) -> Dict[str, Any]:
                     })
                 except (OSError, PermissionError):
                     pass
-        
+
         # Sort by modified date and take the 10 most recent
         recent_files.sort(key=lambda x: x["modified"], reverse=True)
         project_data["recent_files"] = recent_files[:10]
-        
+
         return project_data
-        
+
     except Exception as e:
         print(f"Error getting detailed project info: {e}")
         return {}
+
 
 def generate_project_id(path: str) -> str:
     """Generate a unique ID for a project path."""
     import base64
     return base64.b64encode(path.encode()).decode().replace('=', '').replace('/', '_').replace('+', '-')
+
 
 @app.get("/api/files")
 async def list_files(path: str = "projects"):
@@ -1664,7 +1736,7 @@ async def list_files(path: str = "projects"):
     try:
         # Ensure we only serve files from the projects directory
         projects_root = Path("projects").resolve()
-        
+
         # If path is "." or empty, default to projects folder
         if path in [".", "", "projects"]:
             file_path = projects_root
@@ -1682,24 +1754,24 @@ async def list_files(path: str = "projects"):
             else:
                 # Relative path - join with projects root
                 file_path = (projects_root / path).resolve()
-        
+
         # Security check: ensure the resolved path is still within projects
         try:
             file_path.relative_to(projects_root)
         except ValueError:
             # Path traversal attempt detected, redirect to projects root
             file_path = projects_root
-        
+
         # Create projects directory if it doesn't exist
         if not file_path.exists() and file_path == projects_root:
             file_path.mkdir(parents=True, exist_ok=True)
-        
+
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="Path not found")
-        
+
         if not file_path.is_dir():
             raise HTTPException(status_code=400, detail="Path is not a directory")
-        
+
         items = []
         for item in file_path.iterdir():
             try:
@@ -1715,10 +1787,10 @@ async def list_files(path: str = "projects"):
             except (OSError, PermissionError):
                 # Skip files that can't be accessed
                 continue
-        
+
         # Sort: directories first, then files alphabetically
         items.sort(key=lambda x: (x["type"] != "directory", x["name"].lower()))
-        
+
         return {
             "path": str(file_path),
             "items": items
@@ -1726,13 +1798,14 @@ async def list_files(path: str = "projects"):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
+
 @app.get("/api/files/content")
 async def get_file_content(path: str):
     """Get the content of a specific file (restricted to projects folder)."""
     try:
         # Ensure we only serve files from the projects directory
         projects_root = Path("projects").resolve()
-        
+
         # Construct secure file path
         requested_path = Path(path)
         if requested_path.is_absolute():
@@ -1745,23 +1818,23 @@ async def get_file_content(path: str):
         else:
             # Relative path - join with projects root
             file_path = (projects_root / path).resolve()
-        
+
         # Security check: ensure the resolved path is still within projects
         try:
             file_path.relative_to(projects_root)
         except ValueError:
             raise HTTPException(status_code=403, detail="Access denied: Path traversal detected")
-        
+
         if not file_path.exists():
             raise HTTPException(status_code=404, detail="File not found")
-        
+
         if not file_path.is_file():
             raise HTTPException(status_code=400, detail="Path is not a file")
-        
+
         # Check file size (limit to 10MB for safety)
         if file_path.stat().st_size > 10 * 1024 * 1024:
             raise HTTPException(status_code=413, detail="File too large")
-        
+
         # Try to read as text
         try:
             content = file_path.read_text(encoding='utf-8')
@@ -1774,9 +1847,10 @@ async def get_file_content(path: str):
         except UnicodeDecodeError:
             # File is binary
             raise HTTPException(status_code=415, detail="Binary file not supported for text display")
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.post("/api/files/save")
 async def save_file_content(request: Request):
@@ -1785,29 +1859,30 @@ async def save_file_content(request: Request):
         body = await request.json()
         file_path = Path(body.get("path", "")).resolve()
         content = body.get("content", "")
-        
+
         if not file_path.parent.exists():
             raise HTTPException(status_code=400, detail="Parent directory does not exist")
-        
+
         # Write file
         file_path.write_text(content, encoding='utf-8')
-        
+
         return {
             "path": str(file_path),
             "status": "saved",
             "size": len(content),
             "timestamp": datetime.now().isoformat()
         }
-    
+
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
 
 @app.websocket("/ws/{session_id}")
 async def websocket_endpoint(websocket: WebSocket, session_id: str):
     """WebSocket endpoint for real-time communication."""
     await websocket.accept()
     await session_manager.register_websocket(session_id, websocket)
-    
+
     try:
         # Send connection confirmation
         await websocket.send_text(json.dumps({
@@ -1816,15 +1891,15 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
             "session_id": session_id,
             "timestamp": datetime.now().isoformat()
         }))
-        
+
         while True:
             # Receive message from client
             data = await websocket.receive_text()
             message = json.loads(data)
-            
+
             # Handle different message types
             await handle_websocket_message(websocket, session_id, message)
-            
+
     except WebSocketDisconnect:
         await session_manager.unregister_websocket(session_id)
         print(f"WebSocket disconnected for session: {session_id}")
@@ -1832,60 +1907,64 @@ async def websocket_endpoint(websocket: WebSocket, session_id: str):
         print(f"WebSocket error for session {session_id}: {e}")
         await session_manager.unregister_websocket(session_id)
 
+
 async def handle_websocket_message(websocket: WebSocket, session_id: str, message: Dict[str, Any]):
     """Handle incoming WebSocket messages."""
     # Initialize token tracking variables at function start to prevent scope errors
     total_tokens = 0
     cost = 0.0
-    
+
     message_type = message.get("type")
-    
+
     if message_type == "chat":
         # Handle chat messages (AI interaction)
         content = message.get("content", "")
         context = message.get("context", None)
-        
+
         try:
             # Ensure we have a MeistroCraft session
             meistrocraft_session_id = await session_manager.get_or_create_session(session_id)
-            
+
             # Send start message
             await websocket.send_text(json.dumps({
                 "type": "chat_response_start",
                 "session_id": session_id,
                 "timestamp": datetime.now().isoformat()
             }))
-            
+
             # Get session data to determine project folder
             session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
             project_folder = session_data.get("project_folder") if session_data else None
-            
+
             # Enhance content with file context if available
             enhanced_content = content
             if context and context.get("is_file") and context.get("file_path"):
-                file_info = f"\n\nCurrent file context:\n"
+                file_info = "\n\nCurrent file context:\n"
                 file_info += f"- File: {context.get('file_path')}\n"
                 file_info += f"- Language: {context.get('language')}\n"
                 if context.get("content_preview"):
-                    file_info += f"- Current content:\n```{context.get('language', '')}\n{context.get('content_preview')}\n```\n"
+                    file_info += f"- Current content:\n```{context.get('language', '')}\n"
+                    file_info += f"{context.get('content_preview')}\n```\n"
                 enhanced_content = content + file_info
-            
+
             # Generate task with GPT-4
             task = generate_task_with_gpt4(
-                enhanced_content, 
-                session_manager.config, 
+                enhanced_content,
+                session_manager.config,
                 project_folder,
                 session_manager.token_tracker,
                 meistrocraft_session_id
             )
-            
+
             if not task:
                 # Fallback response if GPT-4 fails
                 await websocket.send_text(json.dumps({
-                    "type": "chat_response_chunk", 
+                    "type": "chat_response_chunk",
                     "session_id": session_id,
                     "timestamp": datetime.now().isoformat(),
-                    "chunk": "I apologize, but I'm having trouble connecting to the AI service right now. Please check your API configuration and try again."
+                    "chunk": "I apologize, but I'm having trouble connecting to the AI service right now. Please check your API configuration and \
+                        \
+                        try again."
                 }))
                 # Set token tracking variables for failed task generation
                 total_tokens = 0
@@ -1893,100 +1972,100 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
             else:
                 # Send task info
                 await websocket.send_text(json.dumps({
-                    "type": "chat_response_chunk", 
+                    "type": "chat_response_chunk",
                     "session_id": session_id,
                     "timestamp": datetime.now().isoformat(),
                     "chunk": f"🎯 Task: {task['action']} - {task['instruction'][:100]}{'...' if len(task['instruction']) > 100 else ''}\n\n"
                 }))
-                
+
                 # Execute with Claude
                 try:
                     result = run_claude_task(
-                        task, 
-                        session_manager.config, 
-                        meistrocraft_session_id, 
-                        session_manager.session_manager, 
+                        task,
+                        session_manager.config,
+                        meistrocraft_session_id,
+                        session_manager.session_manager,
                         project_folder,
                         session_manager.token_tracker
                     )
                 except Exception as claude_error:
                     print(f"Claude task execution failed: {claude_error}")
                     result = {"success": False, "error": str(claude_error)}
-                
+
                 if result.get("success"):
                     # Stream the response
                     response_text = result.get("result", "Task completed successfully!")
                     words = response_text.split()
                     chunk_size = 8
-                    
+
                     for i in range(0, len(words), chunk_size):
-                        chunk = ' '.join(words[i:i+chunk_size])
+                        chunk = ' '.join(words[i:i + chunk_size])
                         await websocket.send_text(json.dumps({
-                            "type": "chat_response_chunk", 
+                            "type": "chat_response_chunk",
                             "session_id": session_id,
                             "timestamp": datetime.now().isoformat(),
                             "chunk": chunk + " "
                         }))
                         await asyncio.sleep(0.05)  # Faster streaming
-                    
+
                     # Save to session
                     session_manager.session_manager.add_task_to_session(meistrocraft_session_id, task, result)
-                    
+
                     # Get token usage from result
                     usage = result.get("response", {}).get("usage", {})
                     total_tokens = usage.get("input_tokens", 0) + usage.get("output_tokens", 0)
                     cost = result.get("response", {}).get("total_cost_usd", 0.0)
-                    
+
                 else:
                     await websocket.send_text(json.dumps({
-                        "type": "chat_response_chunk", 
+                        "type": "chat_response_chunk",
                         "session_id": session_id,
                         "timestamp": datetime.now().isoformat(),
                         "chunk": f"❌ Task failed: {result.get('error', 'Unknown error')}"
                     }))
                     total_tokens = 0
                     cost = 0.0
-            
+
             # Send completion message
             await websocket.send_text(json.dumps({
                 "type": "chat_response_complete",
-                "session_id": session_id, 
+                "session_id": session_id,
                 "timestamp": datetime.now().isoformat(),
                 "total_tokens": total_tokens,
                 "cost": cost
             }))
-            
+
         except Exception as e:
             print(f"Chat error: {e}")
             await websocket.send_text(json.dumps({
-                "type": "chat_response_chunk", 
+                "type": "chat_response_chunk",
                 "session_id": session_id,
                 "timestamp": datetime.now().isoformat(),
                 "chunk": f"❌ Error: {str(e)}"
             }))
             await websocket.send_text(json.dumps({
                 "type": "chat_response_complete",
-                "session_id": session_id, 
+                "session_id": session_id,
                 "timestamp": datetime.now().isoformat(),
                 "total_tokens": 0,
                 "cost": 0.0
             }))
-        
+
     elif message_type == "command":
         # Handle terminal commands
         command = message.get("command", "")
-        
+
         try:
             import subprocess
             import shlex
-            
+
             # Ensure we have a MeistroCraft session
             meistrocraft_session_id = await session_manager.get_or_create_session(session_id)
-            
+
             # Get session data to determine project folder
             session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
             project_folder = session_data.get("project_folder") if session_data else None
-            
+
             # Determine working directory
             if project_folder and os.path.exists(project_folder):
                 working_dir = project_folder
@@ -1995,7 +2074,7 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                 projects_dir = os.path.join(os.getcwd(), "projects")
                 if not os.path.exists(projects_dir):
                     os.makedirs(projects_dir)
-                
+
                 # Create template CLAUDE.md if it doesn't exist
                 template_claude_path = os.path.join(projects_dir, "CLAUDE.md")
                 if not os.path.exists(template_claude_path):
@@ -2014,24 +2093,24 @@ Add development guidelines here.
 """
                     with open(template_claude_path, 'w') as f:
                         f.write(template_content)
-                
+
                 working_dir = projects_dir
-            
+
             # Execute command safely
             result = subprocess.run(
-                shlex.split(command), 
-                capture_output=True, 
-                text=True, 
+                shlex.split(command),
+                capture_output=True,
+                text=True,
                 timeout=30,  # 30 second timeout
                 cwd=working_dir
             )
-            
+
             output = f"$ {command}\n"
             if result.stdout:
                 output += result.stdout
             if result.stderr:
                 output += result.stderr
-            
+
             response = {
                 "type": "command_response",
                 "session_id": session_id,
@@ -2039,7 +2118,7 @@ Add development guidelines here.
                 "output": output,
                 "exit_code": result.returncode
             }
-        
+
         except subprocess.TimeoutExpired:
             response = {
                 "type": "command_response",
@@ -2056,14 +2135,14 @@ Add development guidelines here.
                 "output": f"$ {command}\nError: {str(e)}",
                 "exit_code": 1
             }
-        
+
         await websocket.send_text(json.dumps(response))
-        
+
     elif message_type == "file_operation":
         # Handle file operations (read, write, delete)
         operation = message.get("operation")
         file_path = message.get("path", "")
-        
+
         try:
             if operation == "read":
                 # Read file content
@@ -2103,7 +2182,7 @@ Add development guidelines here.
                             })
                         except (OSError, PermissionError):
                             continue
-                    
+
                     response = {
                         "type": "file_response",
                         "session_id": session_id,
@@ -2143,38 +2222,38 @@ Add development guidelines here.
                 "status": "error",
                 "error": str(e)
             }
-        
+
         await websocket.send_text(json.dumps(response))
-        
+
     elif message_type == "get_tasks":
         # Get task queue status
         try:
             # Ensure we have a MeistroCraft session
             meistrocraft_session_id = await session_manager.get_or_create_session(session_id)
-            
+
             # Get real task data from session
             session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
             tasks = []
-            
+
             if session_data and "task_history" in session_data:
                 # Convert task history to current task format
                 for i, task_entry in enumerate(session_data["task_history"][-3:]):  # Show last 3 tasks
                     task_data = task_entry.get("task", {})
                     result_data = task_entry.get("result", {})
-                    
+
                     status = "completed" if task_entry.get("success", False) else "failed"
-                    
+
                     tasks.append({
                         "id": str(i + 1),
                         "name": task_data.get("instruction", "Unknown task")[:50] + "...",
                         "status": status,
                         "completed_at": task_entry.get("timestamp", datetime.now().isoformat())
                     })
-            
+
             # If no tasks, show empty state
             if not tasks:
                 tasks = []
-            
+
             response = {
                 "type": "task_queue_response",
                 "session_id": session_id,
@@ -2188,13 +2267,13 @@ Add development guidelines here.
                 "timestamp": datetime.now().isoformat(),
                 "error": f"Failed to get tasks: {str(e)}"
             }
-        
+
         await websocket.send_text(json.dumps(response))
-        
+
     elif message_type == "squad_command":
         # Handle claude-squad commands via WebSocket
         operation = message.get("operation")
-        
+
         try:
             if operation == "status":
                 # Get squad installation status
@@ -2206,7 +2285,7 @@ Add development guidelines here.
                     "operation": operation,
                     "data": status
                 }
-            
+
             elif operation == "list_sessions":
                 # List active squad sessions
                 sessions = await squad_bridge.list_sessions()
@@ -2227,25 +2306,25 @@ Add development guidelines here.
                         ]
                     }
                 }
-            
+
             elif operation == "create_session":
                 # Create new squad session
                 project_path = message.get("project_path")
                 agent_type = message.get("agent_type", "claude-code")
-                
+
                 if not project_path:
                     raise ValueError("Project path is required")
-                
+
                 try:
                     agent_enum = SquadAgentType(agent_type)
                 except ValueError:
                     raise ValueError(f"Invalid agent type: {agent_type}")
-                
+
                 session = await squad_bridge.create_session(
                     project_path=project_path,
                     agent_type=agent_enum
                 )
-                
+
                 response = {
                     "type": "squad_response",
                     "session_id": session_id,
@@ -2261,15 +2340,15 @@ Add development guidelines here.
                         }
                     }
                 }
-            
+
             elif operation == "execute":
                 # Execute command in squad session
                 squad_session_id = message.get("squad_session_id")
                 command = message.get("command")
-                
+
                 if not squad_session_id or not command:
                     raise ValueError("Squad session ID and command are required")
-                
+
                 # Send start message
                 await websocket.send_text(json.dumps({
                     "type": "squad_response",
@@ -2281,12 +2360,12 @@ Add development guidelines here.
                         "command": command
                     }
                 }))
-                
+
                 result = await squad_bridge.execute_command(
                     session_id=squad_session_id,
                     command=command
                 )
-                
+
                 response = {
                     "type": "squad_response",
                     "session_id": session_id,
@@ -2297,7 +2376,7 @@ Add development guidelines here.
                         "result": result
                     }
                 }
-            
+
             else:
                 response = {
                     "type": "squad_response",
@@ -2306,7 +2385,7 @@ Add development guidelines here.
                     "operation": operation,
                     "data": {"error": f"Unknown squad operation: {operation}"}
                 }
-        
+
         except Exception as e:
             response = {
                 "type": "squad_response",
@@ -2315,9 +2394,9 @@ Add development guidelines here.
                 "operation": operation,
                 "data": {"error": str(e)}
             }
-        
+
         await websocket.send_text(json.dumps(response))
-        
+
     else:
         # Unknown message type
         response = {
@@ -2328,20 +2407,22 @@ Add development guidelines here.
         }
         await websocket.send_text(json.dumps(response))
 
+
 def main():
     """Main entry point for the web server."""
     print("🌐 Starting MeistroCraft Web IDE...")
     print("📖 Open your browser to: http://localhost:8000")
     print("🔧 API docs available at: http://localhost:8000/docs")
     print("⏹️  Press Ctrl+C to stop")
-    
+
     uvicorn.run(
-        app, 
-        host="0.0.0.0", 
+        app,
+        host="0.0.0.0",
         port=8000,
         log_level="info",
         reload=False  # Disable reload for stability with AI backend
     )
+
 
 if __name__ == "__main__":
     main()

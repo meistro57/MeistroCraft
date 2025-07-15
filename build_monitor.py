@@ -6,7 +6,6 @@ Tracks pipeline status, analyzes build results, and provides intelligent insight
 import json
 import logging
 import time
-import asyncio
 from typing import Dict, List, Any, Optional, Tuple
 from datetime import datetime, timedelta
 from dataclasses import dataclass
@@ -49,11 +48,11 @@ class BuildStatusMonitor:
     Monitors build status across GitHub Actions workflows.
     Provides intelligent analysis and recommendations for build improvements.
     """
-    
+
     def __init__(self, github_actions: GitHubActionsManager, config: Dict[str, Any] = None):
         """
         Initialize build status monitor.
-        
+
         Args:
             github_actions: GitHub Actions manager instance
             config: Configuration dictionary
@@ -61,24 +60,24 @@ class BuildStatusMonitor:
         self.github_actions = github_actions
         self.config = config or {}
         self.logger = logging.getLogger(__name__)
-        
+
         # Build monitoring settings
         self.failure_threshold = self.config.get('failure_threshold', 3)  # consecutive failures
         self.success_rate_threshold = self.config.get('success_rate_threshold', 0.8)  # 80%
         self.performance_degradation_threshold = self.config.get('perf_threshold', 0.3)  # 30% slower
-        
+
         # Cache for build history
         self._build_cache = {}
         self._metrics_cache = {}
-    
+
     def get_build_status(self, repo_name: str, branch: str = None) -> Dict[str, Any]:
         """
         Get current build status for a repository.
-        
+
         Args:
             repo_name: Repository name (owner/repo)
             branch: Specific branch to check (optional)
-            
+
         Returns:
             Build status summary with current state and trends
         """
@@ -87,7 +86,7 @@ class BuildStatusMonitor:
             if hasattr(self.github_actions.github, 'get_multiple_workflow_runs_batch'):
                 batch_results = self.github_actions.github.get_multiple_workflow_runs_batch([repo_name], 50)
                 runs = batch_results.get(repo_name, [])
-                
+
                 # Filter by branch if specified
                 if branch:
                     runs = [run for run in runs if run.get('head_branch') == branch]
@@ -98,7 +97,7 @@ class BuildStatusMonitor:
                     branch=branch,
                     limit=50
                 )
-            
+
             if not runs:
                 return {
                     'status': 'no_builds',
@@ -106,19 +105,19 @@ class BuildStatusMonitor:
                     'branches': {},
                     'overall_health': 'unknown'
                 }
-            
+
             # Analyze builds by branch
             branch_analysis = self._analyze_builds_by_branch(runs)
-            
+
             # Calculate overall health metrics
             health_metrics = self._calculate_health_metrics(runs)
-            
+
             # Detect trends and issues
             trends = self._detect_build_trends(runs)
-            
+
             # Generate recommendations
             recommendations = self._generate_build_recommendations(branch_analysis, health_metrics, trends)
-            
+
             return {
                 'status': health_metrics['overall_status'],
                 'overall_health': health_metrics['health_score'],
@@ -128,7 +127,7 @@ class BuildStatusMonitor:
                 'recommendations': recommendations,
                 'last_updated': datetime.now().isoformat()
             }
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get build status: {e}")
             return {
@@ -136,22 +135,22 @@ class BuildStatusMonitor:
                 'message': f'Failed to retrieve build status: {e}',
                 'error': str(e)
             }
-    
+
     def analyze_build_failure(self, repo_name: str, run_id: int) -> Dict[str, Any]:
         """
         Analyze a failed build to identify root causes and suggest fixes.
-        
+
         Args:
             repo_name: Repository name (owner/repo)
             run_id: Failed workflow run ID
-            
+
         Returns:
             Detailed failure analysis with suggested fixes
         """
         try:
             # Get workflow run details
             run_details = self.github_actions._get_workflow_run_details(repo_name, run_id)
-            
+
             if run_details.get('conclusion') != WorkflowConclusion.FAILURE.value:
                 return {
                     'analysis': 'not_failed',
@@ -159,19 +158,19 @@ class BuildStatusMonitor:
                     'current_status': run_details.get('status'),
                     'current_conclusion': run_details.get('conclusion')
                 }
-            
+
             # Get job details and logs
             jobs_analysis = self._analyze_failed_jobs(repo_name, run_id)
-            
+
             # Identify failure patterns
             failure_patterns = self._identify_failure_patterns(jobs_analysis)
-            
+
             # Generate fix suggestions
             fix_suggestions = self._generate_fix_suggestions(failure_patterns, jobs_analysis)
-            
+
             # Check for common issues
             common_issues = self._check_common_issues(jobs_analysis)
-            
+
             return {
                 'analysis': 'completed',
                 'run_id': run_id,
@@ -183,7 +182,7 @@ class BuildStatusMonitor:
                 'priority': self._calculate_failure_priority(failure_patterns),
                 'analyzed_at': datetime.now().isoformat()
             }
-            
+
         except Exception as e:
             self.logger.error(f"Failed to analyze build failure: {e}")
             return {
@@ -191,21 +190,21 @@ class BuildStatusMonitor:
                 'message': f'Failed to analyze build failure: {e}',
                 'error': str(e)
             }
-    
+
     def get_build_metrics(
-        self, 
-        repo_name: str, 
+        self,
+        repo_name: str,
         time_range: int = 30,
         branch: str = None
     ) -> Dict[str, Any]:
         """
         Get comprehensive build metrics for a repository.
-        
+
         Args:
             repo_name: Repository name (owner/repo)
             time_range: Number of days to analyze
             branch: Specific branch to analyze (optional)
-            
+
         Returns:
             Detailed build metrics and performance data
         """
@@ -218,34 +217,38 @@ class BuildStatusMonitor:
                 branch=branch,
                 limit=200
             )
-            
+
             # Filter by date range
             filtered_runs = [
-                run for run in runs
-                if self._parse_datetime(run.get('created_at', '')) and self._parse_datetime(run.get('created_at', '')) > cutoff_date
-            ]
-            
+                run for run in runs if self._parse_datetime(
+                    run.get(
+                        'created_at',
+                        '')) and self._parse_datetime(
+                    run.get(
+                        'created_at',
+                        '')) > cutoff_date]
+
             if not filtered_runs:
                 return {
                     'metrics': 'no_data',
                     'message': f'No builds found in the last {time_range} days'
                 }
-            
+
             # Calculate metrics
             success_rate = self._calculate_success_rate(filtered_runs)
             average_duration = self._calculate_average_duration(filtered_runs)
             failure_rate = self._calculate_failure_rate(filtered_runs)
             build_frequency = self._calculate_build_frequency(filtered_runs, time_range)
-            
+
             # Performance trends
             performance_trends = self._calculate_performance_trends(filtered_runs)
-            
+
             # Reliability metrics
             reliability_metrics = self._calculate_reliability_metrics(filtered_runs)
-            
+
             # Resource usage analysis
             resource_analysis = self._analyze_resource_usage(filtered_runs)
-            
+
             return {
                 'metrics': 'success',
                 'time_range_days': time_range,
@@ -259,7 +262,7 @@ class BuildStatusMonitor:
                 'resource_usage': resource_analysis,
                 'generated_at': datetime.now().isoformat()
             }
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get build metrics: {e}")
             return {
@@ -267,35 +270,35 @@ class BuildStatusMonitor:
                 'message': f'Failed to calculate build metrics: {e}',
                 'error': str(e)
             }
-    
+
     def monitor_build_health(
-        self, 
-        repo_name: str, 
+        self,
+        repo_name: str,
         alert_threshold: float = 0.7
     ) -> Dict[str, Any]:
         """
         Monitor overall build health and generate alerts for degradation.
-        
+
         Args:
             repo_name: Repository name (owner/repo)
             alert_threshold: Health score threshold for alerts (0.0-1.0)
-            
+
         Returns:
             Health monitoring report with alerts and recommendations
         """
         try:
             # Get recent build status
             status = self.get_build_status(repo_name)
-            
+
             if status.get('status') == 'error':
                 return {
                     'health_monitoring': 'error',
                     'message': 'Failed to retrieve build status for health monitoring'
                 }
-            
+
             health_score = status.get('overall_health', 0)
             alerts = []
-            
+
             # Check health threshold
             if health_score < alert_threshold:
                 alerts.append({
@@ -305,11 +308,11 @@ class BuildStatusMonitor:
                     'current_score': health_score,
                     'threshold': alert_threshold
                 })
-            
+
             # Check for consecutive failures
             metrics = status.get('metrics', {})
             consecutive_failures = metrics.get('consecutive_failures', 0)
-            
+
             if consecutive_failures >= self.failure_threshold:
                 alerts.append({
                     'type': 'consecutive_failures',
@@ -318,7 +321,7 @@ class BuildStatusMonitor:
                     'count': consecutive_failures,
                     'threshold': self.failure_threshold
                 })
-            
+
             # Check success rate
             success_rate = metrics.get('success_rate', 1.0)
             if success_rate < self.success_rate_threshold:
@@ -329,11 +332,11 @@ class BuildStatusMonitor:
                     'current_rate': success_rate,
                     'threshold': self.success_rate_threshold
                 })
-            
+
             # Check for performance degradation
             trends = status.get('trends', {})
             perf_trend = trends.get('duration_trend', 0)
-            
+
             if perf_trend > self.performance_degradation_threshold:
                 alerts.append({
                     'type': 'performance_degradation',
@@ -342,10 +345,10 @@ class BuildStatusMonitor:
                     'trend': perf_trend,
                     'threshold': self.performance_degradation_threshold
                 })
-            
+
             # Generate action items based on alerts
             action_items = self._generate_health_action_items(alerts, status)
-            
+
             return {
                 'health_monitoring': 'completed',
                 'health_score': health_score,
@@ -356,7 +359,7 @@ class BuildStatusMonitor:
                 'status_summary': status,
                 'monitored_at': datetime.now().isoformat()
             }
-            
+
         except Exception as e:
             self.logger.error(f"Failed to monitor build health: {e}")
             return {
@@ -364,14 +367,14 @@ class BuildStatusMonitor:
                 'message': f'Failed to monitor build health: {e}',
                 'error': str(e)
             }
-    
+
     def _analyze_builds_by_branch(self, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Analyze builds grouped by branch."""
         branch_data = {}
-        
+
         for run in runs:
             branch = run.get('head_branch', 'unknown')
-            
+
             if branch not in branch_data:
                 branch_data[branch] = {
                     'total_builds': 0,
@@ -381,10 +384,10 @@ class BuildStatusMonitor:
                     'last_success': None,
                     'consecutive_failures': 0
                 }
-            
+
             branch_info = branch_data[branch]
             branch_info['total_builds'] += 1
-            
+
             status = run.get('conclusion')
             if status == WorkflowConclusion.SUCCESS.value:
                 branch_info['successful_builds'] += 1
@@ -394,29 +397,29 @@ class BuildStatusMonitor:
             elif status == WorkflowConclusion.FAILURE.value:
                 branch_info['failed_builds'] += 1
                 branch_info['consecutive_failures'] += 1
-            
+
             if not branch_info['last_build']:
                 branch_info['last_build'] = run
-        
+
         # Calculate success rates
         for branch, data in branch_data.items():
             total = data['total_builds']
             data['success_rate'] = data['successful_builds'] / total if total > 0 else 0
             data['failure_rate'] = data['failed_builds'] / total if total > 0 else 0
-        
+
         return branch_data
-    
+
     def _calculate_health_metrics(self, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Calculate overall health metrics."""
         if not runs:
             return {'overall_status': 'no_data', 'health_score': 0}
-        
+
         total_runs = len(runs)
         successful = sum(1 for run in runs if run.get('conclusion') == WorkflowConclusion.SUCCESS.value)
         failed = sum(1 for run in runs if run.get('conclusion') == WorkflowConclusion.FAILURE.value)
-        
+
         success_rate = successful / total_runs
-        
+
         # Calculate consecutive failures from most recent builds
         consecutive_failures = 0
         for run in runs:
@@ -424,15 +427,15 @@ class BuildStatusMonitor:
                 consecutive_failures += 1
             else:
                 break
-        
+
         # Calculate health score (0.0 - 1.0)
         health_score = success_rate
-        
+
         # Penalty for consecutive failures
         if consecutive_failures > 0:
             penalty = min(consecutive_failures * 0.1, 0.5)
             health_score = max(0, health_score - penalty)
-        
+
         # Determine overall status
         if health_score >= 0.8:
             overall_status = 'healthy'
@@ -440,7 +443,7 @@ class BuildStatusMonitor:
             overall_status = 'warning'
         else:
             overall_status = 'critical'
-        
+
         return {
             'overall_status': overall_status,
             'health_score': health_score,
@@ -450,33 +453,33 @@ class BuildStatusMonitor:
             'failed_runs': failed,
             'consecutive_failures': consecutive_failures
         }
-    
+
     def _detect_build_trends(self, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Detect trends in build performance and reliability."""
         if len(runs) < 10:
             return {'trend_analysis': 'insufficient_data', 'message': 'Need at least 10 builds for trend analysis'}
-        
+
         # Split into recent and historical groups
         recent_runs = runs[:10]
         historical_runs = runs[10:20] if len(runs) >= 20 else runs[10:]
-        
+
         if not historical_runs:
             return {'trend_analysis': 'insufficient_historical_data'}
-        
+
         # Calculate duration trends
         recent_avg_duration = self._calculate_average_duration(recent_runs)
         historical_avg_duration = self._calculate_average_duration(historical_runs)
-        
+
         duration_trend = 0
         if historical_avg_duration > 0:
             duration_trend = (recent_avg_duration - historical_avg_duration) / historical_avg_duration
-        
+
         # Calculate success rate trends
         recent_success_rate = self._calculate_success_rate(recent_runs)
         historical_success_rate = self._calculate_success_rate(historical_runs)
-        
+
         success_rate_trend = recent_success_rate - historical_success_rate
-        
+
         return {
             'trend_analysis': 'completed',
             'duration_trend': duration_trend,
@@ -487,19 +490,17 @@ class BuildStatusMonitor:
             'historical_success_rate': historical_success_rate,
             'trend_direction': {
                 'duration': 'improving' if duration_trend < -0.1 else 'degrading' if duration_trend > 0.1 else 'stable',
-                'success_rate': 'improving' if success_rate_trend > 0.1 else 'degrading' if success_rate_trend < -0.1 else 'stable'
-            }
-        }
-    
+                'success_rate': 'improving' if success_rate_trend > 0.1 else 'degrading' if success_rate_trend < -0.1 else 'stable'}}
+
     def _generate_build_recommendations(
-        self, 
-        branch_analysis: Dict[str, Any], 
-        health_metrics: Dict[str, Any], 
+        self,
+        branch_analysis: Dict[str, Any],
+        health_metrics: Dict[str, Any],
         trends: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Generate actionable recommendations for build improvements."""
         recommendations = []
-        
+
         # Health-based recommendations
         health_score = health_metrics.get('health_score', 0)
         if health_score < 0.6:
@@ -514,7 +515,7 @@ class BuildStatusMonitor:
                     'Improve test coverage and stability'
                 ]
             })
-        
+
         # Consecutive failure recommendations
         consecutive_failures = health_metrics.get('consecutive_failures', 0)
         if consecutive_failures >= 3:
@@ -529,7 +530,7 @@ class BuildStatusMonitor:
                     'Review recent changes for breaking modifications'
                 ]
             })
-        
+
         # Performance recommendations
         if trends.get('trend_analysis') == 'completed':
             duration_trend = trends.get('duration_trend', 0)
@@ -545,7 +546,7 @@ class BuildStatusMonitor:
                         'Parallelize independent jobs'
                     ]
                 })
-        
+
         # Branch-specific recommendations
         for branch, data in branch_analysis.items():
             if data['success_rate'] < 0.7 and data['total_builds'] >= 5:
@@ -560,9 +561,9 @@ class BuildStatusMonitor:
                         'Ensure proper testing before merges'
                     ]
                 })
-        
+
         return recommendations
-    
+
     def _analyze_failed_jobs(self, repo_name: str, run_id: int) -> List[Dict[str, Any]]:
         """Analyze failed jobs within a workflow run."""
         try:
@@ -570,7 +571,7 @@ class BuildStatusMonitor:
             endpoint = f'/repos/{repo_name}/actions/runs/{run_id}/jobs'
             jobs_response = self.github_actions.github._make_fallback_request('GET', endpoint)
             jobs = jobs_response.get('jobs', [])
-            
+
             failed_jobs = []
             for job in jobs:
                 if job.get('conclusion') == WorkflowConclusion.FAILURE.value:
@@ -582,7 +583,7 @@ class BuildStatusMonitor:
                         'completed_at': job.get('completed_at'),
                         'steps': []
                     }
-                    
+
                     # Analyze failed steps
                     for step in job.get('steps', []):
                         if step.get('conclusion') == WorkflowConclusion.FAILURE.value:
@@ -594,24 +595,24 @@ class BuildStatusMonitor:
                                 'completed_at': step.get('completed_at')
                             }
                             job_analysis['steps'].append(step_analysis)
-                    
+
                     # Get job logs for analysis
                     try:
                         logs = self.github_actions.get_workflow_job_logs(repo_name, job['id'])
                         job_analysis['logs_snippet'] = logs[-1000:] if logs else "No logs available"
                         job_analysis['error_patterns'] = self._extract_error_patterns(logs)
-                    except:
+                    except BaseException:
                         job_analysis['logs_snippet'] = "Failed to retrieve logs"
                         job_analysis['error_patterns'] = []
-                    
+
                     failed_jobs.append(job_analysis)
-            
+
             return failed_jobs
-            
+
         except Exception as e:
             self.logger.error(f"Failed to analyze failed jobs: {e}")
             return []
-    
+
     def _identify_failure_patterns(self, jobs_analysis: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Identify common failure patterns from job analysis."""
         patterns = {
@@ -623,7 +624,7 @@ class BuildStatusMonitor:
             'network_issues': 0,
             'configuration_errors': 0
         }
-        
+
         error_keywords = {
             'dependency_issues': ['dependency', 'package not found', 'module not found', 'import error'],
             'test_failures': ['test failed', 'assertion error', 'test assertion', 'failed tests'],
@@ -633,34 +634,34 @@ class BuildStatusMonitor:
             'network_issues': ['connection failed', 'network error', 'connection timeout'],
             'configuration_errors': ['config error', 'configuration', 'missing environment']
         }
-        
+
         for job in jobs_analysis:
             logs = job.get('logs_snippet', '').lower()
             error_patterns = job.get('error_patterns', [])
-            
+
             for pattern_type, keywords in error_keywords.items():
                 if any(keyword in logs for keyword in keywords):
                     patterns[pattern_type] += 1
-        
+
         # Determine primary failure cause
         primary_cause = max(patterns.items(), key=lambda x: x[1])
-        
+
         return {
             'patterns': patterns,
             'primary_cause': primary_cause[0] if primary_cause[1] > 0 else 'unknown',
             'primary_cause_count': primary_cause[1],
             'total_jobs_analyzed': len(jobs_analysis)
         }
-    
+
     def _generate_fix_suggestions(
-        self, 
-        failure_patterns: Dict[str, Any], 
+        self,
+        failure_patterns: Dict[str, Any],
         jobs_analysis: List[Dict[str, Any]]
     ) -> List[Dict[str, Any]]:
         """Generate specific fix suggestions based on failure patterns."""
         suggestions = []
         primary_cause = failure_patterns.get('primary_cause', 'unknown')
-        
+
         fix_templates = {
             'dependency_issues': {
                 'title': 'Fix Dependency Issues',
@@ -723,10 +724,10 @@ class BuildStatusMonitor:
                 ]
             }
         }
-        
+
         if primary_cause in fix_templates:
             suggestions.append(fix_templates[primary_cause])
-        
+
         # Add general suggestions
         suggestions.append({
             'title': 'General Debugging Steps',
@@ -738,13 +739,13 @@ class BuildStatusMonitor:
                 'Compare with the last successful build'
             ]
         })
-        
+
         return suggestions
-    
+
     def _check_common_issues(self, jobs_analysis: List[Dict[str, Any]]) -> List[Dict[str, Any]]:
         """Check for common CI/CD issues."""
         common_issues = []
-        
+
         # Check for multiple job failures
         if len(jobs_analysis) > 1:
             common_issues.append({
@@ -753,7 +754,7 @@ class BuildStatusMonitor:
                 'description': f'{len(jobs_analysis)} jobs failed in this workflow',
                 'recommendation': 'This suggests a fundamental issue affecting multiple components'
             })
-        
+
         # Check for step failure patterns
         total_failed_steps = sum(len(job.get('steps', [])) for job in jobs_analysis)
         if total_failed_steps > 3:
@@ -763,109 +764,109 @@ class BuildStatusMonitor:
                 'description': f'{total_failed_steps} steps failed across jobs',
                 'recommendation': 'Review workflow structure and step dependencies'
             })
-        
+
         return common_issues
-    
+
     def _calculate_failure_priority(self, failure_patterns: Dict[str, Any]) -> str:
         """Calculate priority level for failure resolution."""
         primary_cause = failure_patterns.get('primary_cause', 'unknown')
-        
+
         high_priority_causes = ['compilation_errors', 'dependency_issues', 'test_failures']
         medium_priority_causes = ['timeout_issues', 'permission_issues', 'configuration_errors']
-        
+
         if primary_cause in high_priority_causes:
             return 'high'
         elif primary_cause in medium_priority_causes:
             return 'medium'
         else:
             return 'low'
-    
+
     def _calculate_success_rate(self, runs: List[Dict[str, Any]]) -> float:
         """Calculate success rate for a list of runs."""
         if not runs:
             return 0.0
-        
+
         successful = sum(1 for run in runs if run.get('conclusion') == WorkflowConclusion.SUCCESS.value)
         return successful / len(runs)
-    
+
     def _calculate_failure_rate(self, runs: List[Dict[str, Any]]) -> float:
         """Calculate failure rate for a list of runs."""
         if not runs:
             return 0.0
-        
+
         failed = sum(1 for run in runs if run.get('conclusion') == WorkflowConclusion.FAILURE.value)
         return failed / len(runs)
-    
+
     def _calculate_average_duration(self, runs: List[Dict[str, Any]]) -> float:
         """Calculate average duration in minutes for a list of runs."""
         if not runs:
             return 0.0
-        
+
         total_duration = 0
         count = 0
-        
+
         for run in runs:
             created_at = self._parse_datetime(run.get('created_at', ''))
             updated_at = self._parse_datetime(run.get('updated_at', ''))
-            
+
             if created_at and updated_at:
                 duration = (updated_at - created_at).total_seconds() / 60
                 total_duration += duration
                 count += 1
-        
+
         return total_duration / count if count > 0 else 0.0
-    
+
     def _calculate_build_frequency(self, runs: List[Dict[str, Any]], days: int) -> float:
         """Calculate builds per day for the given time period."""
         return len(runs) / days if days > 0 else 0.0
-    
+
     def _calculate_performance_trends(self, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Calculate performance trends over time."""
         if len(runs) < 10:
             return {'trend': 'insufficient_data'}
-        
+
         # Split into recent and historical
         recent = runs[:5]
         historical = runs[-5:]
-        
+
         recent_avg = self._calculate_average_duration(recent)
         historical_avg = self._calculate_average_duration(historical)
-        
+
         trend = 0
         if historical_avg > 0:
             trend = (recent_avg - historical_avg) / historical_avg
-        
+
         return {
             'trend': 'improving' if trend < -0.1 else 'degrading' if trend > 0.1 else 'stable',
             'trend_percentage': trend,
             'recent_avg_duration': recent_avg,
             'historical_avg_duration': historical_avg
         }
-    
+
     def _calculate_reliability_metrics(self, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Calculate reliability metrics."""
         if not runs:
             return {'reliability_score': 0}
-        
+
         # Calculate MTBF (Mean Time Between Failures)
         failures = [i for i, run in enumerate(runs) if run.get('conclusion') == WorkflowConclusion.FAILURE.value]
-        
+
         if len(failures) < 2:
             mtbf = len(runs)  # No failures or only one failure
         else:
-            intervals = [failures[i] - failures[i-1] for i in range(1, len(failures))]
+            intervals = [failures[i] - failures[i - 1] for i in range(1, len(failures))]
             mtbf = sum(intervals) / len(intervals)
-        
+
         success_rate = self._calculate_success_rate(runs)
         reliability_score = min(success_rate + (mtbf / len(runs)), 1.0)
-        
+
         return {
             'reliability_score': reliability_score,
             'mean_time_between_failures': mtbf,
             'total_failures': len(failures),
             'success_rate': success_rate
         }
-    
+
     def _analyze_resource_usage(self, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Analyze resource usage patterns."""
         # For now, return basic analysis
@@ -876,19 +877,19 @@ class BuildStatusMonitor:
             'avg_duration_minutes': self._calculate_average_duration(runs),
             'recommendation': 'Monitor resource usage through GitHub Actions insights'
         }
-    
+
     def _generate_health_action_items(
-        self, 
-        alerts: List[Dict[str, Any]], 
+        self,
+        alerts: List[Dict[str, Any]],
         status: Dict[str, Any]
     ) -> List[Dict[str, Any]]:
         """Generate actionable items based on health alerts."""
         action_items = []
-        
+
         for alert in alerts:
             alert_type = alert.get('type')
             severity = alert.get('severity', 'medium')
-            
+
             if alert_type == 'consecutive_failures':
                 action_items.append({
                     'priority': 'critical',
@@ -896,7 +897,7 @@ class BuildStatusMonitor:
                     'description': 'Analyze the most recent failed build to identify root cause',
                     'timeline': 'immediate'
                 })
-            
+
             elif alert_type == 'health_degradation':
                 action_items.append({
                     'priority': 'high',
@@ -904,7 +905,7 @@ class BuildStatusMonitor:
                     'description': 'Examine recent changes and test coverage',
                     'timeline': 'within 24 hours'
                 })
-            
+
             elif alert_type == 'low_success_rate':
                 action_items.append({
                     'priority': 'high',
@@ -912,7 +913,7 @@ class BuildStatusMonitor:
                     'description': 'Focus on fixing flaky tests and improving code quality',
                     'timeline': 'within 48 hours'
                 })
-            
+
             elif alert_type == 'performance_degradation':
                 action_items.append({
                     'priority': 'medium',
@@ -920,27 +921,27 @@ class BuildStatusMonitor:
                     'description': 'Review workflow efficiency and dependency management',
                     'timeline': 'within 1 week'
                 })
-        
+
         return action_items
-    
+
     def _parse_datetime(self, date_string: str) -> Optional[datetime]:
         """Parse datetime string with various formats."""
         if not date_string:
             return None
-        
+
         try:
             # GitHub API typically returns ISO format
             if date_string.endswith('Z'):
                 date_string = date_string[:-1] + '+00:00'
             return datetime.fromisoformat(date_string)
-        except:
+        except BaseException:
             try:
                 # Handle naive datetime strings
                 dt = datetime.strptime(date_string, '%Y-%m-%dT%H:%M:%SZ')
                 # Make timezone-aware for consistency
                 from datetime import timezone
                 return dt.replace(tzinfo=timezone.utc)
-            except:
+            except BaseException:
                 try:
                     # Handle simple ISO format
                     dt = datetime.fromisoformat(date_string)
@@ -948,37 +949,37 @@ class BuildStatusMonitor:
                         from datetime import timezone
                         dt = dt.replace(tzinfo=timezone.utc)
                     return dt
-                except:
+                except BaseException:
                     return None
-    
+
     def _extract_error_patterns(self, logs: str) -> List[str]:
         """Extract error patterns from build logs."""
         if not logs:
             return []
-        
+
         error_patterns = []
         lines = logs.split('\n')
-        
+
         for line in lines:
             line_lower = line.lower()
             if any(keyword in line_lower for keyword in ['error:', 'failed:', 'exception:', 'fatal:']):
                 error_patterns.append(line.strip())
-        
+
         return error_patterns[-10:]  # Return last 10 error patterns
-    
+
     def get_batch_build_status(self, repo_names: List[str]) -> Dict[str, Dict[str, Any]]:
         """
         Get build status for multiple repositories using optimized batching.
-        
+
         Args:
             repo_names: List of repository names (owner/repo)
-            
+
         Returns:
             Dictionary mapping repo names to their build status
         """
         if not repo_names:
             return {}
-        
+
         try:
             # Use batched GitHub API requests for better performance
             if hasattr(self.github_actions.github, 'get_multiple_workflow_runs_batch'):
@@ -995,7 +996,7 @@ class BuildStatusMonitor:
                     except Exception as e:
                         self.logger.error(f"Failed to get runs for {repo}: {e}")
                         batch_results[repo] = []
-            
+
             # Process each repository's data
             results = {}
             for repo_name, runs in batch_results.items():
@@ -1007,16 +1008,16 @@ class BuildStatusMonitor:
                             'overall_health': 'unknown'
                         }
                         continue
-                    
+
                     # Analyze builds by branch
                     branch_analysis = self._analyze_builds_by_branch(runs)
-                    
+
                     # Calculate overall health metrics
                     health_metrics = self._calculate_health_metrics(runs)
-                    
+
                     # Detect trends and issues
                     trends = self._detect_build_trends(runs)
-                    
+
                     results[repo_name] = {
                         'status': health_metrics['overall_status'],
                         'overall_health': health_metrics['health_score'],
@@ -1025,7 +1026,7 @@ class BuildStatusMonitor:
                         'trends': trends,
                         'last_updated': datetime.now().isoformat()
                     }
-                    
+
                 except Exception as e:
                     self.logger.error(f"Failed to analyze builds for {repo_name}: {e}")
                     results[repo_name] = {
@@ -1033,29 +1034,29 @@ class BuildStatusMonitor:
                         'message': f'Failed to analyze builds: {e}',
                         'error': str(e)
                     }
-            
+
             return results
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get batch build status: {e}")
             return {repo: {'status': 'error', 'error': str(e)} for repo in repo_names}
-    
+
     async def get_batch_build_status_async(self, repo_names: List[str]) -> Dict[str, Dict[str, Any]]:
         """
         Get build status for multiple repositories using high-performance async processing.
-        
+
         Args:
             repo_names: List of repository names (owner/repo)
-            
+
         Returns:
             Dictionary mapping repo names to their build status
         """
         if not repo_names:
             return {}
-        
+
         start_time = time.time()
         self.logger.info(f"Starting async batch build status for {len(repo_names)} repositories")
-        
+
         try:
             # Prepare async requests for workflow runs
             requests = []
@@ -1066,19 +1067,19 @@ class BuildStatusMonitor:
                     'params': {'per_page': 50},
                     'repo_name': repo_name  # Add context for processing
                 })
-            
+
             # Execute async batch requests if available
             if hasattr(self.github_actions.github, 'batch_github_requests_async'):
                 self.logger.info("Using enhanced async batch processing")
                 batch_results = await self.github_actions.github.batch_github_requests_async(
                     requests, max_concurrent=5
                 )
-                
+
                 # Process async results
                 results = {}
                 for i, result in enumerate(batch_results):
                     repo_name = requests[i]['repo_name']
-                    
+
                     if result.get('success', False):
                         runs = result.get('data', {}).get('workflow_runs', [])
                         results[repo_name] = await self._analyze_builds_async(repo_name, runs)
@@ -1094,11 +1095,11 @@ class BuildStatusMonitor:
                 # Fallback to sync batch processing
                 self.logger.info("Falling back to sync batch processing")
                 results = self.get_batch_build_status(repo_names)
-            
+
             # Log performance metrics
             total_time = time.time() - start_time
             self.logger.info(f"Async batch processing completed in {total_time:.2f}s for {len(repo_names)} repos")
-            
+
             # Record performance metric
             if hasattr(self.github_actions.github, '_record_performance_metric'):
                 self.github_actions.github._record_performance_metric(
@@ -1110,13 +1111,13 @@ class BuildStatusMonitor:
                         'function': 'get_batch_build_status_async'
                     }
                 )
-            
+
             return results
-            
+
         except Exception as e:
             self.logger.error(f"Failed to get async batch build status: {e}")
             return {repo: {'status': 'error', 'error': str(e)} for repo in repo_names}
-    
+
     async def _analyze_builds_async(self, repo_name: str, runs: List[Dict[str, Any]]) -> Dict[str, Any]:
         """Async version of build analysis for better performance."""
         try:
@@ -1126,12 +1127,12 @@ class BuildStatusMonitor:
                     'message': 'No workflow runs found',
                     'overall_health': 'unknown'
                 }
-            
+
             # Use existing analysis methods (these are fast and don't need async)
             branch_analysis = self._analyze_builds_by_branch(runs)
             health_metrics = self._calculate_health_metrics(runs)
             trends = self._detect_build_trends(runs)
-            
+
             return {
                 'status': health_metrics['overall_status'],
                 'overall_health': health_metrics['health_score'],
@@ -1141,7 +1142,7 @@ class BuildStatusMonitor:
                 'last_updated': datetime.now().isoformat(),
                 'processed_async': True
             }
-            
+
         except Exception as e:
             self.logger.error(f"Failed to analyze builds for {repo_name}: {e}")
             return {
@@ -1149,13 +1150,13 @@ class BuildStatusMonitor:
                 'message': f'Failed to analyze builds: {e}',
                 'error': str(e)
             }
-    
+
     def get_optimization_metrics(self) -> Dict[str, Any]:
         """Get performance metrics for build monitoring."""
         github_metrics = {}
         if hasattr(self.github_actions.github, 'get_performance_metrics'):
             github_metrics = self.github_actions.github.get_performance_metrics()
-        
+
         return {
             'github_client_metrics': github_metrics,
             'cache_stats': {

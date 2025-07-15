@@ -6,7 +6,7 @@ from naming_agent import generate_creative_project_name
 # Test fallback functionality
 test_cases = [
     'create a binary calculator using flask',
-    'build a weather forecast application', 
+    'build a weather forecast application',
     'make a todo list manager',
     'create a chat application with real-time messaging',
     'build a file encryption tool'

@@ -3,13 +3,11 @@ Self-Optimization System for MeistroCraft
 Uses performance metrics and persistent memory to automatically refine and improve code.
 """
 
-import json
 import os
 import ast
 import time
 import logging
 import hashlib
-import subprocess
 from typing import Dict, List, Any, Optional, Tuple, Set
 from datetime import datetime, timedelta
 from pathlib import Path
@@ -49,7 +47,7 @@ class PerformanceMetric:
     timestamp: datetime
     context: Dict[str, Any]
     baseline_value: Optional[float] = None
-    
+
     def improvement_ratio(self) -> Optional[float]:
         """Calculate improvement ratio compared to baseline."""
         if self.baseline_value and self.baseline_value != 0:
@@ -71,7 +69,7 @@ class OptimizationCandidate:
     proposed_changes: Dict[str, Any]
     performance_evidence: List[PerformanceMetric]
     created_at: datetime
-    
+
     def priority_score(self) -> float:
         """Calculate priority score for this optimization."""
         severity_weights = {
@@ -80,22 +78,22 @@ class OptimizationCandidate:
             OptimizationSeverity.HIGH: 0.75,
             OptimizationSeverity.CRITICAL: 1.0
         }
-        return (self.estimated_impact * self.confidence_score * 
+        return (self.estimated_impact * self.confidence_score *
                 severity_weights[self.severity])
 
 
 class SelfOptimizer:
     """
-    Self-optimization system that monitors performance and automatically 
+    Self-optimization system that monitors performance and automatically
     improves MeistroCraft's code based on learned patterns.
     """
-    
-    def __init__(self, 
+
+    def __init__(self,
                  persistent_memory: PersistentMemory,
                  config: Dict[str, Any] = None):
         """
         Initialize the self-optimizer.
-        
+
         Args:
             persistent_memory: Persistent memory instance for storing optimization data
             config: Configuration dictionary
@@ -103,33 +101,33 @@ class SelfOptimizer:
         self.memory = persistent_memory
         self.config = config or {}
         self.logger = logging.getLogger(__name__)
-        
+
         # Optimization settings
         self.optimization_enabled = self.config.get('self_optimization_enabled', True)
         self.min_data_points = self.config.get('min_optimization_data_points', 10)
         self.confidence_threshold = self.config.get('confidence_threshold', 0.7)
         self.impact_threshold = self.config.get('impact_threshold', 0.1)  # 10% improvement
         self.safety_mode = self.config.get('optimization_safety_mode', True)
-        
+
         # Performance tracking
         self.performance_history = {}
         self.optimization_candidates = []
         self.applied_optimizations = {}
-        
+
         # Code analysis
         self.source_files = self._discover_source_files()
         self.baseline_metrics = self._load_baseline_metrics()
-        
+
         self.logger.info("Self-optimizer initialized with safety mode: %s", self.safety_mode)
-    
-    def record_performance_metric(self, 
-                                metric_name: str, 
-                                value: float, 
-                                unit: str = "ms",
-                                context: Dict[str, Any] = None) -> None:
+
+    def record_performance_metric(self,
+                                  metric_name: str,
+                                  value: float,
+                                  unit: str = "ms",
+                                  context: Dict[str, Any] = None) -> None:
         """
         Record a performance metric for analysis.
-        
+
         Args:
             metric_name: Name of the metric (e.g., "github_api_response_time")
             value: Measured value
@@ -138,7 +136,7 @@ class SelfOptimizer:
         """
         if not self.optimization_enabled:
             return
-        
+
         metric = PerformanceMetric(
             metric_name=metric_name,
             value=value,
@@ -147,17 +145,17 @@ class SelfOptimizer:
             context=context or {},
             baseline_value=self.baseline_metrics.get(metric_name)
         )
-        
+
         # Store in performance history
         if metric_name not in self.performance_history:
             self.performance_history[metric_name] = []
-        
+
         self.performance_history[metric_name].append(metric)
-        
+
         # Keep only recent metrics (last 1000 data points)
         if len(self.performance_history[metric_name]) > 1000:
             self.performance_history[metric_name] = self.performance_history[metric_name][-1000:]
-        
+
         # Store in persistent memory
         self.memory.store(
             f"performance_metric_{metric_name}_{int(time.time())}",
@@ -165,15 +163,15 @@ class SelfOptimizer:
             MemoryType.PERFORMANCE_DATA,
             MemoryPriority.MEDIUM
         )
-        
+
         # Trigger analysis if we have enough data
         if len(self.performance_history[metric_name]) >= self.min_data_points:
             self._analyze_performance_pattern(metric_name)
-    
+
     def analyze_system_performance(self) -> Dict[str, Any]:
         """
         Analyze overall system performance and identify optimization opportunities.
-        
+
         Returns:
             Analysis results with optimization recommendations
         """
@@ -185,24 +183,24 @@ class SelfOptimizer:
             'performance_trends': {},
             'recommendations': []
         }
-        
+
         # Analyze each performance metric
         for metric_name, metrics in self.performance_history.items():
             if len(metrics) < self.min_data_points:
                 continue
-            
+
             trend_analysis = self._analyze_metric_trend(metric_name, metrics)
             analysis_results['performance_trends'][metric_name] = trend_analysis
-            
+
             # Identify optimization opportunities
             candidates = self._identify_optimization_candidates(metric_name, metrics, trend_analysis)
             self.optimization_candidates.extend(candidates)
             analysis_results['optimization_candidates'].extend([asdict(c) for c in candidates])
-        
+
         # Generate high-level recommendations
         recommendations = self._generate_system_recommendations()
         analysis_results['recommendations'] = recommendations
-        
+
         # Store analysis in memory
         self.memory.store(
             f"performance_analysis_{int(time.time())}",
@@ -210,42 +208,42 @@ class SelfOptimizer:
             MemoryType.ANALYSIS_RESULT,
             MemoryPriority.HIGH
         )
-        
+
         return analysis_results
-    
+
     def apply_optimizations(self, auto_approve: bool = False) -> Dict[str, Any]:
         """
         Apply the highest priority optimizations.
-        
+
         Args:
             auto_approve: If True, automatically apply optimizations without confirmation
-            
+
         Returns:
             Results of optimization application
         """
         if not self.optimization_enabled:
             return {'status': 'disabled', 'message': 'Self-optimization is disabled'}
-        
+
         # Sort candidates by priority
-        candidates = sorted(self.optimization_candidates, 
-                          key=lambda x: x.priority_score(), reverse=True)
-        
+        candidates = sorted(self.optimization_candidates,
+                            key=lambda x: x.priority_score(), reverse=True)
+
         results = {
             'applied_count': 0,
             'skipped_count': 0,
             'failed_count': 0,
             'optimizations': []
         }
-        
+
         for candidate in candidates[:5]:  # Limit to top 5 optimizations
             if candidate.confidence_score < self.confidence_threshold:
                 results['skipped_count'] += 1
                 continue
-            
+
             if candidate.estimated_impact < self.impact_threshold:
                 results['skipped_count'] += 1
                 continue
-            
+
             # Apply optimization
             try:
                 if self.safety_mode and not auto_approve:
@@ -253,7 +251,7 @@ class SelfOptimizer:
                     self.logger.info(f"Optimization candidate: {candidate.description}")
                     self.logger.info(f"Estimated impact: {candidate.estimated_impact:.1%}")
                     self.logger.info(f"Confidence: {candidate.confidence_score:.1%}")
-                    
+
                     # Store for manual review instead of auto-applying
                     self.memory.store(
                         f"optimization_pending_{candidate.optimization_id}",
@@ -263,7 +261,7 @@ class SelfOptimizer:
                     )
                     results['skipped_count'] += 1
                     continue
-                
+
                 success = self._apply_optimization(candidate)
                 if success:
                     results['applied_count'] += 1
@@ -272,7 +270,7 @@ class SelfOptimizer:
                         'description': candidate.description,
                         'status': 'applied'
                     })
-                    
+
                     # Store successful optimization
                     self.applied_optimizations[candidate.optimization_id] = {
                         'candidate': candidate,
@@ -286,27 +284,27 @@ class SelfOptimizer:
                         'description': candidate.description,
                         'status': 'failed'
                     })
-                    
+
             except Exception as e:
                 self.logger.error(f"Failed to apply optimization {candidate.optimization_id}: {e}")
                 results['failed_count'] += 1
-        
+
         # Clear applied candidates
-        self.optimization_candidates = [c for c in self.optimization_candidates 
-                                      if c.optimization_id not in self.applied_optimizations]
-        
+        self.optimization_candidates = [c for c in self.optimization_candidates
+                                        if c.optimization_id not in self.applied_optimizations]
+
         return results
-    
+
     def get_optimization_history(self) -> List[Dict[str, Any]]:
         """Get history of applied optimizations."""
         history = []
-        
+
         # Get from persistent memory
         memories = self.memory.search_memories("optimization_applied_", MemoryType.OPTIMIZATION_RESULT)
-        
+
         for memory in memories:
             history.append(memory.content)
-        
+
         # Add current applied optimizations
         for opt_id, opt_data in self.applied_optimizations.items():
             history.append({
@@ -316,33 +314,33 @@ class SelfOptimizer:
                 'status': opt_data['status'],
                 'impact': opt_data['candidate'].estimated_impact
             })
-        
+
         return sorted(history, key=lambda x: x['applied_at'], reverse=True)
-    
+
     def revert_optimization(self, optimization_id: str) -> bool:
         """
         Revert a previously applied optimization.
-        
+
         Args:
             optimization_id: ID of optimization to revert
-            
+
         Returns:
             True if successfully reverted
         """
         if optimization_id not in self.applied_optimizations:
             return False
-        
+
         try:
             opt_data = self.applied_optimizations[optimization_id]
             candidate = opt_data['candidate']
-            
+
             # Implement reversion logic based on optimization type
             success = self._revert_optimization(candidate)
-            
+
             if success:
                 opt_data['status'] = 'reverted'
                 opt_data['reverted_at'] = datetime.now()
-                
+
                 # Store reversion in memory
                 self.memory.store(
                     f"optimization_reverted_{optimization_id}",
@@ -354,81 +352,81 @@ class SelfOptimizer:
                     MemoryType.OPTIMIZATION_RESULT,
                     MemoryPriority.HIGH
                 )
-                
+
                 self.logger.info(f"Successfully reverted optimization: {optimization_id}")
                 return True
-        
+
         except Exception as e:
             self.logger.error(f"Failed to revert optimization {optimization_id}: {e}")
-        
+
         return False
-    
+
     def _discover_source_files(self) -> List[str]:
         """Discover Python source files in the project."""
         source_files = []
         project_root = Path(__file__).parent
-        
+
         for py_file in project_root.glob("*.py"):
             if py_file.name not in ['__init__.py', 'test_*.py']:
                 source_files.append(str(py_file))
-        
+
         return source_files
-    
+
     def _load_baseline_metrics(self) -> Dict[str, float]:
         """Load baseline performance metrics from memory."""
         baselines = {}
-        
+
         # Try to load from persistent memory
         memories = self.memory.search_memories("baseline_metric_", MemoryType.PERFORMANCE_DATA)
-        
+
         for memory in memories:
             metric_name = memory.key.replace("baseline_metric_", "")
             baselines[metric_name] = memory.content.get('value', 0.0)
-        
+
         return baselines
-    
+
     def _analyze_performance_pattern(self, metric_name: str) -> None:
         """Analyze performance pattern for a specific metric."""
         metrics = self.performance_history[metric_name]
-        
+
         if len(metrics) < self.min_data_points:
             return
-        
+
         # Calculate trends and patterns
         recent_metrics = metrics[-10:]  # Last 10 measurements
         historical_metrics = metrics[-30:-10]  # Previous 20 measurements
-        
+
         if len(historical_metrics) < 5:
             return
-        
+
         recent_avg = sum(m.value for m in recent_metrics) / len(recent_metrics)
         historical_avg = sum(m.value for m in historical_metrics) / len(historical_metrics)
-        
+
         # Check for performance degradation
         if recent_avg > historical_avg * 1.2:  # 20% slower
             self._create_performance_degradation_candidate(metric_name, recent_avg, historical_avg)
-    
+
     def _analyze_metric_trend(self, metric_name: str, metrics: List[PerformanceMetric]) -> Dict[str, Any]:
         """Analyze trend for a specific metric."""
         if len(metrics) < 5:
             return {'trend': 'insufficient_data'}
-        
+
         values = [m.value for m in metrics[-20:]]  # Last 20 values
-        
+
         # Simple linear trend calculation
         n = len(values)
         x_sum = sum(range(n))
         y_sum = sum(values)
         xy_sum = sum(i * values[i] for i in range(n))
         x2_sum = sum(i * i for i in range(n))
-        
+
         if n * x2_sum - x_sum * x_sum == 0:
             slope = 0
         else:
             slope = (n * xy_sum - x_sum * y_sum) / (n * x2_sum - x_sum * x_sum)
-        
+
         trend_direction = 'improving' if slope < 0 else 'degrading' if slope > 0 else 'stable'
-        
+
         return {
             'trend': trend_direction,
             'slope': slope,
@@ -436,53 +434,53 @@ class SelfOptimizer:
             'historical_avg': sum(values[:-5]) / max(len(values) - 5, 1),
             'data_points': len(values)
         }
-    
-    def _identify_optimization_candidates(self, 
-                                        metric_name: str, 
-                                        metrics: List[PerformanceMetric],
-                                        trend_analysis: Dict[str, Any]) -> List[OptimizationCandidate]:
+
+    def _identify_optimization_candidates(self,
+                                          metric_name: str,
+                                          metrics: List[PerformanceMetric],
+                                          trend_analysis: Dict[str, Any]) -> List[OptimizationCandidate]:
         """Identify optimization candidates for a metric."""
         candidates = []
-        
+
         # Check for degrading performance
-        if (trend_analysis['trend'] == 'degrading' and 
-            trend_analysis['current_avg'] > trend_analysis['historical_avg'] * 1.15):
-            
+        if (trend_analysis['trend'] == 'degrading' and
+                trend_analysis['current_avg'] > trend_analysis['historical_avg'] * 1.15):
+
             candidate = self._create_performance_optimization_candidate(
                 metric_name, metrics, trend_analysis
             )
             if candidate:
                 candidates.append(candidate)
-        
+
         # Check for caching opportunities
         if metric_name.endswith('_response_time') and trend_analysis['current_avg'] > 1000:  # > 1 second
             candidate = self._create_caching_candidate(metric_name, metrics)
             if candidate:
                 candidates.append(candidate)
-        
+
         # Check for concurrency opportunities
         if 'batch' in metric_name.lower() and trend_analysis['current_avg'] > 500:  # > 500ms
             candidate = self._create_concurrency_candidate(metric_name, metrics)
             if candidate:
                 candidates.append(candidate)
-        
+
         return candidates
-    
+
     def _create_performance_optimization_candidate(self,
-                                                 metric_name: str,
-                                                 metrics: List[PerformanceMetric],
-                                                 trend_analysis: Dict[str, Any]) -> Optional[OptimizationCandidate]:
+                                                   metric_name: str,
+                                                   metrics: List[PerformanceMetric],
+                                                   trend_analysis: Dict[str, Any]) -> Optional[OptimizationCandidate]:
         """Create a performance optimization candidate."""
-        
+
         # Determine target file and function based on metric context
         target_file, target_function = self._infer_optimization_target(metric_name, metrics)
-        
+
         if not target_file:
             return None
-        
-        performance_impact = min((trend_analysis['current_avg'] - trend_analysis['historical_avg']) / 
-                               trend_analysis['historical_avg'], 0.8)
-        
+
+        performance_impact = min((trend_analysis['current_avg'] - trend_analysis['historical_avg']) /
+                                 trend_analysis['historical_avg'], 0.8)
+
         return OptimizationCandidate(
             optimization_id=f"perf_opt_{metric_name}_{int(time.time())}",
             optimization_type=OptimizationType.ALGORITHM_SELECTION,
@@ -501,16 +499,16 @@ class SelfOptimizer:
             performance_evidence=metrics[-10:],
             created_at=datetime.now()
         )
-    
-    def _create_caching_candidate(self, 
-                                metric_name: str, 
-                                metrics: List[PerformanceMetric]) -> Optional[OptimizationCandidate]:
+
+    def _create_caching_candidate(self,
+                                  metric_name: str,
+                                  metrics: List[PerformanceMetric]) -> Optional[OptimizationCandidate]:
         """Create a caching optimization candidate."""
         target_file, target_function = self._infer_optimization_target(metric_name, metrics)
-        
+
         if not target_file:
             return None
-        
+
         return OptimizationCandidate(
             optimization_id=f"cache_opt_{metric_name}_{int(time.time())}",
             optimization_type=OptimizationType.CACHING_STRATEGY,
@@ -529,16 +527,16 @@ class SelfOptimizer:
             performance_evidence=metrics[-10:],
             created_at=datetime.now()
         )
-    
+
     def _create_concurrency_candidate(self,
-                                    metric_name: str,
-                                    metrics: List[PerformanceMetric]) -> Optional[OptimizationCandidate]:
+                                      metric_name: str,
+                                      metrics: List[PerformanceMetric]) -> Optional[OptimizationCandidate]:
         """Create a concurrency optimization candidate."""
         target_file, target_function = self._infer_optimization_target(metric_name, metrics)
-        
+
         if not target_file:
             return None
-        
+
         return OptimizationCandidate(
             optimization_id=f"concurrency_opt_{metric_name}_{int(time.time())}",
             optimization_type=OptimizationType.CONCURRENCY_OPTIMIZATION,
@@ -556,21 +554,21 @@ class SelfOptimizer:
             performance_evidence=metrics[-10:],
             created_at=datetime.now()
         )
-    
-    def _infer_optimization_target(self, 
-                                 metric_name: str, 
-                                 metrics: List[PerformanceMetric]) -> Tuple[str, str]:
+
+    def _infer_optimization_target(self,
+                                   metric_name: str,
+                                   metrics: List[PerformanceMetric]) -> Tuple[str, str]:
         """Infer target file and function from metric context."""
         # Analyze metric context to determine source
         contexts = [m.context for m in metrics if m.context]
-        
+
         if not contexts:
             return "", ""
-        
+
         # Look for common patterns in context
         files_mentioned = set()
         functions_mentioned = set()
-        
+
         for context in contexts:
             if 'file' in context:
                 files_mentioned.add(context['file'])
@@ -578,12 +576,12 @@ class SelfOptimizer:
                 functions_mentioned.add(context['function'])
             if 'github' in metric_name.lower():
                 files_mentioned.add('github_client.py')
-        
+
         target_file = files_mentioned.pop() if files_mentioned else ""
         target_function = functions_mentioned.pop() if functions_mentioned else ""
-        
+
         return target_file, target_function
-    
+
     def _apply_optimization(self, candidate: OptimizationCandidate) -> bool:
         """Apply an optimization candidate."""
         try:
@@ -596,18 +594,18 @@ class SelfOptimizer:
             else:
                 self.logger.warning(f"Optimization type not implemented: {candidate.optimization_type}")
                 return False
-        
+
         except Exception as e:
             self.logger.error(f"Failed to apply optimization: {e}")
             return False
-    
+
     def _apply_caching_optimization(self, candidate: OptimizationCandidate) -> bool:
         """Apply caching optimization."""
         # This is a simplified implementation
         # In practice, this would analyze the target function and add appropriate caching
-        
+
         self.logger.info(f"Applied caching optimization to {candidate.target_function}")
-        
+
         # Store optimization record
         self.memory.store(
             f"optimization_applied_{candidate.optimization_id}",
@@ -620,13 +618,13 @@ class SelfOptimizer:
             MemoryType.OPTIMIZATION_RESULT,
             MemoryPriority.HIGH
         )
-        
+
         return True
-    
+
     def _apply_concurrency_optimization(self, candidate: OptimizationCandidate) -> bool:
         """Apply concurrency optimization."""
         self.logger.info(f"Applied concurrency optimization to {candidate.target_function}")
-        
+
         # Store optimization record
         self.memory.store(
             f"optimization_applied_{candidate.optimization_id}",
@@ -639,24 +637,24 @@ class SelfOptimizer:
             MemoryType.OPTIMIZATION_RESULT,
             MemoryPriority.HIGH
         )
-        
+
         return True
-    
+
     def _apply_parameter_tuning(self, candidate: OptimizationCandidate) -> bool:
         """Apply parameter tuning optimization."""
         self.logger.info(f"Applied parameter tuning to {candidate.target_function}")
         return True
-    
+
     def _revert_optimization(self, candidate: OptimizationCandidate) -> bool:
         """Revert an applied optimization."""
         # Implementation would depend on optimization type
         self.logger.info(f"Reverted optimization: {candidate.optimization_id}")
         return True
-    
+
     def _generate_system_recommendations(self) -> List[Dict[str, Any]]:
         """Generate high-level system optimization recommendations."""
         recommendations = []
-        
+
         # Analyze overall performance trends
         if len(self.optimization_candidates) > 10:
             recommendations.append({
@@ -666,11 +664,11 @@ class SelfOptimizer:
                 'description': f'Found {len(self.optimization_candidates)} optimization opportunities',
                 'action': 'Consider running comprehensive system optimization'
             })
-        
+
         # Check memory usage patterns
-        memory_metrics = [m for metrics in self.performance_history.values() 
-                         for m in metrics if 'memory' in m.metric_name.lower()]
-        
+        memory_metrics = [m for metrics in self.performance_history.values()
+                          for m in metrics if 'memory' in m.metric_name.lower()]
+
         if memory_metrics and len(memory_metrics) > 10:
             avg_memory = sum(m.value for m in memory_metrics[-10:]) / 10
             if avg_memory > 1000:  # > 1GB
@@ -681,23 +679,23 @@ class SelfOptimizer:
                     'description': f'Average memory usage: {avg_memory:.1f}MB',
                     'action': 'Implement memory optimization strategies'
                 })
-        
+
         return recommendations
-    
-    def _create_performance_degradation_candidate(self, 
-                                                metric_name: str, 
-                                                recent_avg: float, 
-                                                historical_avg: float) -> None:
+
+    def _create_performance_degradation_candidate(self,
+                                                  metric_name: str,
+                                                  recent_avg: float,
+                                                  historical_avg: float) -> None:
         """Create optimization candidate for performance degradation."""
         target_file, target_function = self._infer_optimization_target(
             metric_name, self.performance_history[metric_name]
         )
-        
+
         if not target_file:
             return
-        
+
         degradation_ratio = (recent_avg - historical_avg) / historical_avg
-        
+
         candidate = OptimizationCandidate(
             optimization_id=f"degradation_{metric_name}_{int(time.time())}",
             optimization_type=OptimizationType.ALGORITHM_SELECTION,
@@ -715,22 +713,22 @@ class SelfOptimizer:
             performance_evidence=self.performance_history[metric_name][-10:],
             created_at=datetime.now()
         )
-        
+
         self.optimization_candidates.append(candidate)
-        
+
         self.logger.warning(f"Performance degradation detected in {metric_name}: "
-                          f"{degradation_ratio:.1%} slower than baseline")
+                            f"{degradation_ratio:.1%} slower than baseline")
 
 
-def create_self_optimizer(persistent_memory: PersistentMemory, 
-                         config: Dict[str, Any] = None) -> SelfOptimizer:
+def create_self_optimizer(persistent_memory: PersistentMemory,
+                          config: Dict[str, Any] = None) -> SelfOptimizer:
     """
     Create and configure self-optimizer instance.
-    
+
     Args:
         persistent_memory: Persistent memory instance
         config: Configuration dictionary
-        
+
     Returns:
         SelfOptimizer instance
     """
