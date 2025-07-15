@@ -29,5 +29,9 @@ EXPOSE 8000
 ENV PYTHONPATH=/app
 ENV PYTHONUNBUFFERED=1
 
+# Add health check
+HEALTHCHECK --interval=30s --timeout=10s --start-period=5s --retries=3 \
+    CMD python3 healthcheck.py || exit 1
+
 # Default command to start the web server
 CMD ["python3", "web_server.py"]

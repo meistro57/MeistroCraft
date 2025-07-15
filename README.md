@@ -6,8 +6,9 @@
   > **A Complete Multi-Agent System for Autonomous Code Generation**
 </div>
 
-[![Python 3.7+](https://img.shields.io/badge/python-3.7+-blue.svg)](https://www.python.org/downloads/)
-[![Node.js 18+](https://img.shields.io/badge/node.js-18+-green.svg)](https://nodejs.org/)
+[![CI/CD Pipeline](https://github.com/meistro57/MeistroCraft/actions/workflows/ci.yml/badge.svg)](https://github.com/meistro57/MeistroCraft/actions/workflows/ci.yml)
+[![Docker Publish](https://github.com/meistro57/MeistroCraft/actions/workflows/docker-publish.yml/badge.svg)](https://github.com/meistro57/MeistroCraft/actions/workflows/docker-publish.yml)
+[![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
 A sophisticated multi-agent system that combines GPT-4's strategic planning capabilities with Claude Code CLI's advanced coding expertise. Features a modern web-based IDE, real-time AI assistance, advanced project management, and enterprise-grade usage monitoring.
