@@ -12,6 +12,8 @@
 
 A sophisticated multi-agent system that combines GPT-4's strategic planning capabilities with Claude Code CLI's advanced coding expertise to create an autonomous code generation and modification platform. Features a modern split terminal interface with real-time token tracking, comprehensive session management, and enterprise-grade usage monitoring.
 
+<img width="1920" height="1080" alt="image" src="https://github.com/user-attachments/assets/bfc7963f-955d-43ce-89b4-47c402947d49" />
+
 ## 📋 Table of Contents
 
 - [Overview](#overview)
