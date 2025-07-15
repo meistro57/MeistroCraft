@@ -12,6 +12,7 @@ class ProjectManager {
         this.searchQuery = '';
         this.selectedProject = null;
         this.contextMenu = null;
+        this.viewMode = 'grid'; // 'grid' or 'list'
         
         this.init();
     }
@@ -53,6 +54,16 @@ class ProjectManager {
                                 <option value="name">Name</option>
                                 <option value="size">Size</option>
                             </select>
+                            
+                            <div class="view-toggle">
+                                <button class="view-toggle-btn active" data-view="grid" title="Grid View">⊞</button>
+                                <button class="view-toggle-btn" data-view="list" title="List View">☰</button>
+                            </div>
+                            
+                            <label class="project-checkbox select-all-checkbox">
+                                <input type="checkbox" id="selectAllCheckbox" />
+                                <span class="checkmark"></span>
+                            </label>
                         </div>
                         
                         <div class="project-actions">
@@ -164,6 +175,23 @@ class ProjectManager {
         
         document.getElementById('projectSortSelect').addEventListener('change', () => {
             this.filterAndRenderProjects();
+        });
+        
+        // View toggle buttons
+        document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                const viewMode = e.target.dataset.view;
+                this.setViewMode(viewMode);
+            });
+        });
+        
+        // Select all checkbox
+        document.getElementById('selectAllCheckbox').addEventListener('change', (e) => {
+            if (e.target.checked) {
+                this.selectAllProjects();
+            } else {
+                this.clearSelection();
+            }
         });
         
         // Click outside to close context menu and details
@@ -342,21 +370,7 @@ class ProjectManager {
     }
     
     filterAndRenderProjects() {
-        let filteredProjects = this.projects;
-        
-        // Apply status filter
-        if (this.currentFilter !== 'all') {
-            filteredProjects = filteredProjects.filter(p => p.status === this.currentFilter);
-        }
-        
-        // Apply search filter
-        if (this.searchQuery) {
-            filteredProjects = filteredProjects.filter(p => 
-                p.name.toLowerCase().includes(this.searchQuery) ||
-                p.description.toLowerCase().includes(this.searchQuery) ||
-                p.technologies.some(tech => tech.toLowerCase().includes(this.searchQuery))
-            );
-        }
+        let filteredProjects = this.getFilteredProjects();
         
         // Apply sorting
         const sortBy = document.getElementById('projectSortSelect').value;
@@ -424,6 +438,10 @@ class ProjectManager {
         return `
             <div class="project-card ${isSelected ? 'selected' : ''}" data-project-id="${project.id}">
                 <div class="project-card-header">
+                    <label class="project-checkbox" onclick="event.stopPropagation()">
+                        <input type="checkbox" ${isSelected ? 'checked' : ''} onchange="window.projectManager.toggleProjectSelection('${project.id}')">
+                        <span class="checkmark"></span>
+                    </label>
                     <h3 class="project-name">${this.escapeHtml(project.name)}</h3>
                     <span class="project-status ${statusClass}">${statusClass}</span>
                 </div>
@@ -493,6 +511,84 @@ class ProjectManager {
         return buttons.join('');
     }
     
+    setViewMode(mode) {
+        console.log('🔄 Setting view mode to:', mode);
+        this.viewMode = mode;
+        
+        // Update toggle buttons
+        document.querySelectorAll('.view-toggle-btn').forEach(btn => {
+            btn.classList.remove('active');
+            if (btn.dataset.view === mode) {
+                btn.classList.add('active');
+            }
+        });
+        
+        // Update grid class
+        const grid = document.getElementById('projectGrid');
+        if (mode === 'list') {
+            grid.className = 'project-list-view';
+            console.log('✅ Applied list view class');
+        } else {
+            grid.className = 'project-grid';
+            console.log('✅ Applied grid view class');
+        }
+        
+        // Re-render projects to apply new layout
+        this.renderProjects(this.getFilteredProjects());
+    }
+    
+    getFilteredProjects() {
+        let filteredProjects = this.projects;
+        
+        // Apply status filter
+        if (this.currentFilter !== 'all') {
+            filteredProjects = filteredProjects.filter(p => p.status === this.currentFilter);
+        }
+        
+        // Apply search filter
+        if (this.searchQuery) {
+            filteredProjects = filteredProjects.filter(p => 
+                p.name.toLowerCase().includes(this.searchQuery) ||
+                p.description.toLowerCase().includes(this.searchQuery) ||
+                p.technologies.some(tech => tech.toLowerCase().includes(this.searchQuery))
+            );
+        }
+        
+        return filteredProjects;
+    }
+    
+    selectAllProjects() {
+        const visibleProjects = this.getFilteredProjects();
+        visibleProjects.forEach(project => {
+            this.selectedProjects.add(project.id);
+        });
+        this.renderProjects(visibleProjects);
+        this.updateSelectAllCheckbox();
+    }
+    
+    clearSelection() {
+        this.selectedProjects.clear();
+        this.renderProjects(this.getFilteredProjects());
+        this.updateSelectAllCheckbox();
+    }
+    
+    updateSelectAllCheckbox() {
+        const selectAllCheckbox = document.getElementById('selectAllCheckbox');
+        const visibleProjects = this.getFilteredProjects();
+        const selectedVisibleCount = visibleProjects.filter(p => this.selectedProjects.has(p.id)).length;
+        
+        if (selectedVisibleCount === 0) {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = false;
+        } else if (selectedVisibleCount === visibleProjects.length) {
+            selectAllCheckbox.checked = true;
+            selectAllCheckbox.indeterminate = false;
+        } else {
+            selectAllCheckbox.checked = false;
+            selectAllCheckbox.indeterminate = true;
+        }
+    }
+    
     selectProject(projectId) {
         this.selectedProjects.clear();
         this.selectedProjects.add(projectId);
@@ -508,20 +604,19 @@ class ProjectManager {
         this.updateSelection();
     }
     
-    selectAllProjects() {
-        const visibleProjects = document.querySelectorAll('.project-card[data-project-id]');
-        visibleProjects.forEach(card => {
-            this.selectedProjects.add(card.dataset.projectId);
-        });
-        this.updateSelection();
-    }
-    
     updateSelection() {
         document.querySelectorAll('.project-card').forEach(card => {
             const isSelected = this.selectedProjects.has(card.dataset.projectId);
             card.classList.toggle('selected', isSelected);
+            
+            // Update checkbox state
+            const checkbox = card.querySelector('input[type="checkbox"]');
+            if (checkbox) {
+                checkbox.checked = isSelected;
+            }
         });
         
+        this.updateSelectAllCheckbox();
         this.updateBulkActions();
     }
     
@@ -1019,31 +1114,47 @@ class ProjectManager {
     }
     
     async bulkDelete() {
-        if (this.selectedProjects.size === 0) return;
+        console.log('🗑️ bulkDelete called, selected projects:', this.selectedProjects.size);
         
-        if (!confirm(`⚠️ Permanently delete ${this.selectedProjects.size} project(s)? This cannot be undone.`)) return;
+        if (this.selectedProjects.size === 0) {
+            console.log('❌ No projects selected for deletion');
+            return;
+        }
+        
+        if (!confirm(`⚠️ Permanently delete ${this.selectedProjects.size} project(s)? This cannot be undone.`)) {
+            console.log('❌ User cancelled deletion');
+            return;
+        }
         
         try {
+            console.log('🔄 Starting bulk delete process...');
             this.showLoading();
             
+            let deletedCount = 0;
             for (const projectId of this.selectedProjects) {
                 const project = this.projects.find(p => p.id === projectId);
                 if (project) {
+                    console.log(`🗑️ Deleting project: ${project.name} (${project.path})`);
                     const response = await fetch(`/api/projects/${encodeURIComponent(project.path)}`, {
                         method: 'DELETE'
                     });
                     
                     if (response.ok) {
                         this.projects = this.projects.filter(p => p.id !== projectId);
+                        deletedCount++;
+                        console.log(`✅ Successfully deleted: ${project.name}`);
+                    } else {
+                        console.error(`❌ Failed to delete: ${project.name}`, response.status);
                     }
                 }
             }
             
             this.selectedProjects.clear();
             this.filterAndRenderProjects();
-            this.showNotification('success', 'Projects deleted successfully');
+            this.showNotification('success', `Successfully deleted ${deletedCount} project(s)`);
+            console.log(`✅ Bulk delete complete: ${deletedCount} projects deleted`);
         } catch (error) {
-            console.error('Failed to delete projects:', error);
+            console.error('❌ Failed to delete projects:', error);
             this.showNotification('error', 'Failed to delete some projects');
         } finally {
             this.hideLoading();

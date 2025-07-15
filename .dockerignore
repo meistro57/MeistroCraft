@@ -1,0 +1,66 @@
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+ENV/
+env.bak/
+venv.bak/
+
+# IDEs
+.vscode/
+.idea/
+*.swp
+*.swo
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Git
+.git/
+.gitignore
+
+# Docker
+Dockerfile
+docker-compose*.yml
+.dockerignore
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+
+# Screenshots and images (development artifacts)
+Screenshot*.png
+*.jpg
+*.jpeg
+*.gif
+
+# Keep logos but exclude other icons
+*.ico
+!MeistroCraft_logo.ico
+!MeistroCraft_logo.png
+
+# Test environments
+test_env/
+github_test_env/
+
+# Documentation (reduce image size)
+*.md
+CHANGELOG.md
+FEATURES.md
+GITHUB_INTEGRATION.md
+TESTING_RESULTS.md
+WIKI.md
+
+# Build artifacts
+build/
+dist/
+*.egg-info/

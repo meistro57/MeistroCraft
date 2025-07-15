@@ -24,9 +24,39 @@ class MeistroCraftIDE {
         this.init();
     }
     
-    async init() {
-        // Generate session ID
+    async initializeSession() {
+        // Check for stored session ID first
+        const storedSessionId = localStorage.getItem('meistrocraft-current-session');
+        
+        if (storedSessionId) {
+            // Verify the session still exists on the server
+            try {
+                const response = await fetch('/api/sessions');
+                if (response.ok) {
+                    const sessions = await response.json();
+                    const existingSession = sessions.find(s => s.id === storedSessionId);
+                    
+                    if (existingSession) {
+                        // Resume existing session
+                        this.sessionId = storedSessionId;
+                        console.log(`Resuming existing session: ${this.sessionId}`);
+                        return;
+                    }
+                }
+            } catch (error) {
+                console.warn('Failed to check existing sessions:', error);
+            }
+        }
+        
+        // Create new session if no valid existing session found
         this.sessionId = `web-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`;
+        localStorage.setItem('meistrocraft-current-session', this.sessionId);
+        console.log(`Created new session: ${this.sessionId}`);
+    }
+    
+    async init() {
+        // Check for existing session first, or generate new one
+        await this.initializeSession();
         document.getElementById('sessionId').textContent = this.sessionId;
         document.getElementById('currentSessionId').textContent = this.sessionId;
         
@@ -1416,8 +1446,19 @@ Happy coding! 🚀
             
             if (response.ok) {
                 const data = await response.json();
+                // Update current session instead of reloading
+                this.sessionId = data.session_id;
+                localStorage.setItem('meistrocraft-current-session', this.sessionId);
+                document.getElementById('sessionId').textContent = this.sessionId;
+                document.getElementById('currentSessionId').textContent = this.sessionId;
+                
+                // Reconnect WebSocket with new session
+                this.initWebSocket();
+                
                 this.addChatMessage('system', `New session created: ${data.session_id}`);
-                window.location.reload(); // Simple reload for demo
+                
+                // Refresh sessions list
+                this.loadSessions();
             } else {
                 this.addChatMessage('system', 'Failed to create new session');
             }
@@ -1615,6 +1656,8 @@ Happy coding! 🚀
     }
     
     async saveSettings() {
+        console.log('🔧 saveSettings() called');
+        
         // Collect all settings from UI
         this.settings = {
             openaiKey: document.getElementById('openaiKey').value,
@@ -1641,6 +1684,12 @@ Happy coding! 🚀
             sessionBackup: document.getElementById('sessionBackup').checked
         };
         
+        console.log('🔧 Collected settings:', {
+            openaiKey: this.settings.openaiKey ? `${this.settings.openaiKey.substring(0, 8)}...` : 'empty',
+            anthropicKey: this.settings.anthropicKey ? `${this.settings.anthropicKey.substring(0, 8)}...` : 'empty',
+            githubKey: this.settings.githubKey ? `${this.settings.githubKey.substring(0, 8)}...` : 'empty'
+        });
+        
         // Save to localStorage
         localStorage.setItem('meistrocraft-settings', JSON.stringify(this.settings));
         
@@ -1663,9 +1712,12 @@ Happy coding! 🚀
             }
         }
         
+        console.log('🔧 API config to save:', Object.keys(apiConfig));
+        
         // Save API config to backend if we have any API keys
         if (Object.keys(apiConfig).length > 0) {
             try {
+                console.log('🔧 Sending POST to /api/config...');
                 const response = await fetch('/api/config', {
                     method: 'POST',
                     headers: {
@@ -1679,12 +1731,15 @@ Happy coding! 🚀
                 }
                 
                 const result = await response.json();
-                console.log('API configuration saved:', result);
+                console.log('✅ API configuration saved successfully:', result);
+                this.addChatMessage('system', `API configuration saved: ${Object.keys(apiConfig).join(', ')}`);
             } catch (error) {
-                console.error('Error saving API configuration:', error);
+                console.error('❌ Error saving API configuration:', error);
                 this.addChatMessage('system', `Error saving API configuration: ${error.message}`);
                 return; // Don't show success if API config failed
             }
+        } else {
+            console.log('🔧 No API keys to save');
         }
         
         // Apply settings immediately
@@ -2172,6 +2227,8 @@ Happy coding! 🚀
                     // Update default model if available
                     if (config.openai.model) {
                         document.getElementById('defaultModel').value = config.openai.model;
+                        // Also update our local settings to match backend
+                        this.settings.defaultModel = config.openai.model;
                     }
                     // Clear the input since it's already configured
                     document.getElementById('openaiKey').value = '';
@@ -2183,6 +2240,12 @@ Happy coding! 🚀
                 if (config.anthropic?.configured) {
                     document.getElementById('anthropicKey').placeholder = 'sk-ant-...(configured)';
                     this.updateAPIStatus('anthropic', 'valid', 'Configured');
+                    // Update default model if available and no OpenAI model was set
+                    if (config.anthropic.model && !config.openai?.configured) {
+                        document.getElementById('defaultModel').value = config.anthropic.model;
+                        // Also update our local settings to match backend
+                        this.settings.defaultModel = config.anthropic.model;
+                    }
                     // Clear the input since it's already configured
                     document.getElementById('anthropicKey').value = '';
                 } else {

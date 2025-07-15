@@ -30,7 +30,15 @@
       "Bash(grep:*)",
       "Bash(pip3 install:*)",
       "Bash(source:*)",
-      "Bash(claude)"
+      "Bash(claude)",
+      "Bash(gh pr:*)",
+      "Bash(sudo systemctl:*)",
+      "Bash(docker-compose:*)",
+      "Bash(docker compose:*)",
+      "Bash(sudo mv:*)",
+      "Bash(docker exec:*)",
+      "Bash(docker logs:*)",
+      "Bash(docker restart:*)"
     ],
     "deny": []
   }

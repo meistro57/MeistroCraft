@@ -107,6 +107,41 @@
     align-items: center;
 }
 
+.view-toggle {
+    display: flex;
+    gap: 4px;
+    margin-left: 16px;
+}
+
+.view-toggle-btn {
+    padding: 8px 10px;
+    background: #3c3c3c;
+    border: 1px solid #555;
+    color: #ccc;
+    cursor: pointer;
+    font-size: 14px;
+    transition: all 0.2s ease;
+}
+
+.view-toggle-btn:first-child {
+    border-radius: 4px 0 0 4px;
+}
+
+.view-toggle-btn:last-child {
+    border-radius: 0 4px 4px 0;
+    border-left: none;
+}
+
+.view-toggle-btn.active {
+    background: #007acc;
+    color: #fff;
+    border-color: #007acc;
+}
+
+.view-toggle-btn:hover:not(.active) {
+    background: #4a4a4a;
+}
+
 .project-filter select {
     background: #3c3c3c;
     border: 1px solid #555;
@@ -140,6 +175,49 @@
     gap: 24px;
 }
 
+.project-list-view {
+    display: flex;
+    flex-direction: column;
+    gap: 12px;
+}
+
+.project-list-view .project-card {
+    display: flex;
+    align-items: center;
+    padding: 16px 20px;
+    gap: 16px;
+}
+
+.project-list-view .project-card-header {
+    margin-bottom: 0;
+    flex: 1;
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.project-list-view .project-name {
+    flex: 1;
+    margin: 0;
+}
+
+.project-list-view .project-description {
+    display: none;
+}
+
+.project-list-view .project-meta {
+    margin-bottom: 0;
+}
+
+.project-list-view .project-info {
+    margin-bottom: 0;
+    flex: 0 0 auto;
+}
+
+.project-list-view .project-actions-card {
+    flex: 0 0 auto;
+}
+
 .project-card {
     background: #2d2d30;
     border: 1px solid #404040;
@@ -160,6 +238,62 @@
 .project-card.selected {
     border-color: #007acc;
     background: rgba(0, 122, 204, 0.05);
+}
+
+.project-checkbox {
+    position: relative;
+    display: inline-block;
+    width: 18px;
+    height: 18px;
+    margin-right: 12px;
+    flex-shrink: 0;
+}
+
+.project-checkbox input {
+    opacity: 0;
+    position: absolute;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    cursor: pointer;
+}
+
+.project-checkbox .checkmark {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 18px;
+    height: 18px;
+    background: #3c3c3c;
+    border: 1px solid #555;
+    border-radius: 3px;
+    transition: all 0.2s ease;
+}
+
+.project-checkbox input:checked ~ .checkmark {
+    background: #007acc;
+    border-color: #007acc;
+}
+
+.project-checkbox .checkmark::after {
+    content: '';
+    position: absolute;
+    display: none;
+    left: 5px;
+    top: 2px;
+    width: 5px;
+    height: 9px;
+    border: solid #fff;
+    border-width: 0 2px 2px 0;
+    transform: rotate(45deg);
+}
+
+.project-checkbox input:checked ~ .checkmark::after {
+    display: block;
+}
+
+.select-all-checkbox {
+    margin-left: 16px;
 }
 
 .project-card-header {

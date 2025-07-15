@@ -1,13 +1,14 @@
-# MeistroCraft IDE - Technical Documentation for Claude
+# MeistroCraft - Technical Documentation
 
 ## Overview
-MeistroCraft is a comprehensive AI-powered development orchestrator that operates in multiple modes:
+MeistroCraft is a comprehensive AI-powered development orchestrator with multiple operational modes:
 
-1. **🌐 Browser IDE**: Modern web-based interface with VS Code-style editing, real-time AI assistance, and session management
-2. **⚡ Command Line Interface**: Split terminal UI for interactive coding sessions with token tracking
-3. **🤖 Orchestration Engine**: Multi-agent system combining GPT-4 strategic planning with Claude Code CLI execution
-4. **🐙 GitHub Integration**: Complete workflow automation with PR/issue management and CI/CD pipeline integration
-5. **🧠 Self-Optimization**: Automatic performance analysis and intelligent code refinement
+1. **🌐 Browser IDE**: Modern web interface with VS Code-style editing and real-time AI assistance
+2. **⚡ Command Line Interface**: Split terminal UI for interactive coding sessions
+3. **🤖 Multi-Agent System**: GPT-4 strategic planning with Claude Code CLI execution
+4. **🐙 GitHub Integration**: Complete workflow automation with PR/issue management
+5. **🐳 Docker Support**: Full containerization with persistent volumes
+6. **📁 Advanced Project Manager**: Grid/list views, multi-select, and bulk operations
 
 ## Architecture
 
@@ -27,11 +28,20 @@ MeistroCraft is a comprehensive AI-powered development orchestrator that operate
    - Tab management system for multiple files
    - WebSocket client for AI communication
    - File explorer with tree navigation
+   - Enhanced session management with localStorage persistence
 
-3. **UI Template** - `templates/ide.html`
+3. **Project Manager** - `static/js/project-manager.js`
+   - Advanced project management with grid/list views
+   - Multi-select operations with checkboxes
+   - Bulk actions (delete, archive, restore)
+   - Real-time filtering and sorting
+   - Visual status indicators and analytics
+
+4. **UI Template** - `templates/ide.html`
    - CSS Grid layout with resizable panels
    - Dark theme VS Code-style interface
    - Status bar with token tracking
+   - Project manager modal overlay
 
 #### ⚡ Command Line Components
 
@@ -60,30 +70,20 @@ MeistroCraft is a comprehensive AI-powered development orchestrator that operate
 ## Key Features
 
 ### File Management
-- **Security**: All file operations restricted to `projects/` directory
-- **Tree Navigation**: Hierarchical file explorer in sidebar
-- **Tab System**: Multiple file editing with close/modified indicators
-- **New File Creation**: Plus tab with language-specific templates
+- **Security**: All operations restricted to `projects/` directory
+- **Tree Navigation**: Hierarchical file explorer
+- **Tab System**: Multiple file editing with modification indicators
+- **Context Awareness**: AI receives current file context
 
 ### AI Integration
-- **Context Awareness**: AI receives current file context (path, language, content preview)
-- **Streaming Responses**: Real-time response chunks via WebSocket
-- **Backend Integration**: Uses existing MeistroCraft task generation (GPT-4) + execution (Claude)
-- **Session Management**: Each web session maps to a MeistroCraft session with isolated project folder
+- **Streaming Responses**: Real-time WebSocket communication
+- **Task Generation**: GPT-4 creates structured tasks for Claude execution
+- **Session Management**: Isolated project workspaces per session
 
-### UI Layout (CSS Grid)
-```css
-grid-template-areas: 
-    "sidebar editor chat"
-    "sidebar terminal chat";
-grid-template-columns: 300px 1fr 300px;
-grid-template-rows: 1fr 200px;
-```
-
-### Resizable Panels
-- **Handles**: Invisible dividers between panels with hover/drag states
-- **Constraints**: Min/max sizes to prevent UI collapse
-- **Editor Integration**: Monaco Editor automatically relayouts on resize
+### UI Layout
+- **CSS Grid**: Responsive three-panel layout (sidebar, editor, chat)
+- **Resizable Panels**: Adjustable panel sizes with constraints
+- **Monaco Editor**: Auto-layout on resize
 
 ## File Structure
 
@@ -158,11 +158,21 @@ Backend enhances the message with file context before sending to AI.
 
 ## Session Management
 
-1. **Web Session Creation**: Unique ID generated on page load
-2. **MeistroCraft Session Mapping**: Web session maps to backend session
+1. **Web Session Creation**: Unique ID generated on page load with localStorage persistence
+2. **MeistroCraft Session Mapping**: Web session maps to backend session with automatic reuse
 3. **Project Folder**: Each session gets isolated folder in `projects/`
 4. **GitHub Integration**: Sessions automatically integrate with GitHub workflows
-5. **Cleanup**: Folders removed when sessions deleted
+5. **Session Persistence**: Sessions automatically resume on page refresh
+6. **Optimized Creation**: Reduced session creation with get_or_create_session pattern
+7. **Cleanup**: Smart cleanup with session validation and folder management
+
+### Enhanced Session Features
+
+- **🔄 Auto-Resume**: Sessions automatically continue where you left off
+- **📊 Session Analytics**: Track session duration, token usage, and activity
+- **🛡️ Security**: Sandboxed session isolation with restricted file access
+- **⚡ Performance**: Optimized session creation to reduce backend load
+- **📁 Project-Based**: Sessions now called "projects" for better user experience
 
 ## GitHub Integration (Phase 1 & 2 Complete)
 
@@ -217,6 +227,53 @@ When MeistroCraft executes tasks, the system automatically:
 
 ## Debugging Common Issues
 
+### 🔧 Enhanced Debugging System
+
+MeistroCraft now includes comprehensive debugging capabilities:
+
+**Frontend Debugging:**
+- **🖥️ Browser Console**: All frontend actions logged with emoji indicators
+- **📊 API Key Debugging**: Detailed logging of API key save/load process
+- **🔄 Session Management**: Real-time session creation and reuse logging
+- **📁 Project Manager**: Full debugging of view modes and bulk operations
+
+**Backend Debugging:**
+- **🐳 Container Logs**: Real-time Docker container logging
+- **🔑 API Validation**: Enhanced API key validation with placeholder detection
+- **🌐 WebSocket Activity**: Detailed connection and message logging
+- **⚡ Performance Monitoring**: Session creation optimization tracking
+
+### Common Issues & Solutions
+
+#### 🔑 API Key Issues
+**Problem**: "Chatbot is broken" or dummy API keys still being used
+**Solution**: 
+1. Open browser console (F12)
+2. Check for `🔧 saveSettings() called` messages
+3. Verify API keys are being saved with `✅ API configuration saved`
+4. Check container logs: `docker logs meistrocraft-meistrocraft-1`
+
+#### 🔄 Session Creation Problems
+**Problem**: Too many sessions being created
+**Solution**: 
+- Check for `🔄 Reusing existing MeistroCraft session` messages
+- Verify localStorage persistence is working
+- Use `get_or_create_session` pattern in backend
+
+#### 📁 Project Manager Issues
+**Problem**: View toggle or bulk delete not working
+**Solution**:
+1. Check console for `🔄 Setting view mode to:` messages
+2. Verify `🗑️ bulkDelete called` appears when deleting
+3. Check project selection state with debugging
+
+#### 🐳 Docker Issues
+**Problem**: Container startup or volume mounting issues
+**Solution**:
+1. Check Docker Compose version compatibility
+2. Verify persistent volumes are properly mounted
+3. Check health check status in container logs
+
 ### Resizable Windows Not Working
 1. Check if resize handles are positioned correctly in CSS
 2. Verify event listeners are attached in `initializeResize()`
@@ -237,8 +294,9 @@ When MeistroCraft executes tasks, the system automatically:
 
 ### 🌐 Web IDE Mode (Browser Interface)
 
+#### 🚀 Automated Startup (Recommended)
 ```bash
-# Automated startup (recommended)
+# Cross-platform Python startup
 python3 start_ide.py
 
 # Or platform-specific scripts
@@ -250,6 +308,23 @@ python3 web_server.py
 
 # Access at http://localhost:8000
 ```
+
+#### 🐳 Docker Mode (Production-Ready)
+```bash
+# Quick start with Docker Compose
+docker-compose up --build
+
+# Access at http://localhost:8000
+# All dependencies automatically installed
+# Persistent volumes for projects and sessions
+```
+
+**Docker Features:**
+- ✅ Automatic dependency installation
+- ✅ Persistent data volumes for projects and sessions
+- ✅ Health check monitoring
+- ✅ Development mode with hot reload
+- ✅ Optimized image size with .dockerignore
 
 ### ⚡ Command Line Mode (CLI Interface)
 

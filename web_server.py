@@ -88,6 +88,7 @@ class WebSessionManager:
     async def create_session(self, session_id: str, config: Dict[str, Any] = None) -> str:
         """Create a new MeistroCraft session for web interface."""
         if session_id in self.sessions:
+            print(f"🔄 Reusing existing MeistroCraft session {self.sessions[session_id][:8]} for web session {session_id[:8]}")
             return self.sessions[session_id]
         
         if not self.session_manager:
@@ -100,12 +101,19 @@ class WebSessionManager:
         )
         
         self.sessions[session_id] = meistrocraft_session_id
-        print(f"🌐 Created MeistroCraft session {meistrocraft_session_id[:8]} for web session {session_id[:8]}")
+        print(f"🌐 Created NEW MeistroCraft session {meistrocraft_session_id[:8]} for web session {session_id[:8]}")
         return meistrocraft_session_id
         
     async def get_session(self, session_id: str) -> Optional[InteractiveSession]:
         """Get existing session."""
         return self.sessions.get(session_id)
+    
+    async def get_or_create_session(self, session_id: str) -> str:
+        """Get existing session or create new one if it doesn't exist."""
+        if session_id in self.sessions:
+            return self.sessions[session_id]
+        else:
+            return await self.create_session(session_id)
         
     async def register_websocket(self, session_id: str, websocket: WebSocket):
         """Register WebSocket connection for session."""
@@ -284,19 +292,22 @@ async def get_api_config():
         
         if session_manager.config and isinstance(session_manager.config, dict):
             # Check OpenAI configuration
-            if session_manager.config.get("openai_api_key"):
+            openai_key = session_manager.config.get("openai_api_key")
+            if openai_key and not openai_key.startswith("sk-your-") and openai_key != "<YOUR_OPENAI_API_KEY>":
                 config_status["openai"]["configured"] = True
                 config_status["openai"]["model"] = session_manager.config.get("openai_model", "gpt-4")
                 config_status["openai"]["status"] = "configured"
             
             # Check Anthropic configuration
-            if session_manager.config.get("anthropic_api_key"):
+            anthropic_key = session_manager.config.get("anthropic_api_key")
+            if anthropic_key and not anthropic_key.startswith("sk-ant-your-") and anthropic_key != "<YOUR_ANTHROPIC_API_KEY>":
                 config_status["anthropic"]["configured"] = True
                 config_status["anthropic"]["model"] = session_manager.config.get("claude_model", "claude-3-sonnet")
                 config_status["anthropic"]["status"] = "configured"
             
             # Check GitHub configuration
-            if session_manager.config.get("github_api_key"):
+            github_key = session_manager.config.get("github_api_key")
+            if github_key and not github_key.startswith("ghp_your-") and github_key != "<YOUR_GITHUB_API_KEY>":
                 config_status["github"]["configured"] = True
                 config_status["github"]["status"] = "configured"
         
@@ -380,16 +391,18 @@ async def test_api_key(request: Request):
                     try:
                         user_data = response.json()
                         # Ensure user_data is a dict, not a string
-                        if isinstance(user_data, str):
+                        if not isinstance(user_data, dict):
                             return {
                                 "provider": provider,
                                 "status": "invalid",
-                                "message": f"Unexpected response format: {user_data}"
+                                "message": f"Unexpected response format. Expected dict, got {type(user_data).__name__}: {str(user_data)[:100]}"
                             }
+                        
+                        login = user_data.get('login', 'Unknown user')
                         return {
                             "provider": provider,
                             "status": "valid",
-                            "message": f"Authenticated as {user_data.get('login', 'Unknown user')}",
+                            "message": f"Authenticated as {login}",
                             "username": user_data.get("login", "Unknown")
                         }
                     except Exception as json_error:
@@ -537,12 +550,23 @@ async def fork_github_repository(owner: str, repo: str):
 @app.get("/api/github/repository/{owner}/{repo}/contents")
 async def get_github_repository_contents(owner: str, repo: str, path: str = ""):
     """Get contents of a GitHub repository directory."""
+    print(f"DEBUG START: Function called with owner={owner}, repo={repo}, path={path}")
     try:
-        if not session_manager.config or not isinstance(session_manager.config, dict) or not session_manager.config.get("github_api_key"):
-            raise HTTPException(status_code=400, detail="GitHub API key not configured")
+        # Debug the config type
+        print(f"DEBUG: session_manager.config type: {type(session_manager.config)}")
+        print(f"DEBUG: session_manager.config value: {session_manager.config}")
+        
+        if not session_manager.config:
+            raise HTTPException(status_code=400, detail="Configuration not available")
+        
+        if not isinstance(session_manager.config, dict):
+            raise HTTPException(status_code=400, detail=f"Configuration is not a dictionary, got {type(session_manager.config).__name__}")
+        
+        if not session_manager.config.get("github_api_key"):
+            raise HTTPException(status_code=400, detail="GitHub API key not configured in dictionary")
         
         from github_client import GitHubClient
-        client = GitHubClient(session_manager.config["github_api_key"])
+        client = GitHubClient(session_manager.config)
         
         # List directory contents
         import requests
@@ -728,7 +752,7 @@ async def generate_project(request: Request):
             raise HTTPException(status_code=400, detail="Project specification required")
         
         # Ensure we have a MeistroCraft session
-        meistrocraft_session_id = await session_manager.create_session(session_id or f"project-{datetime.now().timestamp()}")
+        meistrocraft_session_id = await session_manager.get_or_create_session(session_id or f"project-{datetime.now().timestamp()}")
         
         # Get session data for project folder
         session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
@@ -1823,7 +1847,7 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
         
         try:
             # Ensure we have a MeistroCraft session
-            meistrocraft_session_id = await session_manager.create_session(session_id)
+            meistrocraft_session_id = await session_manager.get_or_create_session(session_id)
             
             # Send start message
             await websocket.send_text(json.dumps({
@@ -1957,7 +1981,7 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
             import shlex
             
             # Ensure we have a MeistroCraft session
-            meistrocraft_session_id = await session_manager.create_session(session_id)
+            meistrocraft_session_id = await session_manager.get_or_create_session(session_id)
             
             # Get session data to determine project folder
             session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
@@ -2126,7 +2150,7 @@ Add development guidelines here.
         # Get task queue status
         try:
             # Ensure we have a MeistroCraft session
-            meistrocraft_session_id = await session_manager.create_session(session_id)
+            meistrocraft_session_id = await session_manager.get_or_create_session(session_id)
             
             # Get real task data from session
             session_data = session_manager.session_manager.load_session(meistrocraft_session_id)
