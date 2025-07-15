@@ -62,6 +62,9 @@ projects/
 config/config.json
 !config/config.template.json
 
+# Claude settings
+.claude/settings.local.json
+
 # Temporary files
 *.tmp
 *.temp
