@@ -289,9 +289,14 @@ class TaskQueue:
                 task.progress_message = "Generating task with GPT-4..."
                 self._notify_progress_callbacks(task)
                 
-                # Load configuration (simplified for background execution)
-                from main import load_config
-                config = load_config()
+                # Load configuration (simplified for background execution);
+                # if config file is missing or unloadable, proceed with empty config
+                try:
+                    from main import load_config
+                    config = load_config()
+                except BaseException as e:
+                    print(f"Warning: Could not load config for background task: {e}")
+                    config = {}
                 
                 # Get workspace path if available
                 project_folder = None

@@ -5,6 +5,12 @@ All notable changes to MeistroCraft will be documented in this file.
 The format is based on [Keep a Changelog](https://keepachangelog.com/en/1.0.0/),
 and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0.html).
 
+## [3.1.1] - 2025-07-14
+
+### 🐛 Bug Fixes
+- Ensure `load_config()` locates `config/config.json` relative to the project root when the working directory changes
+- Prevent background tasks from crashing on config load errors by guarding against missing or invalid config
+
 ## [3.1.0] - 2025-07-13
 
 ### 🌐 Web IDE & Cross-Platform Support

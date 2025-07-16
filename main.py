@@ -11,6 +11,7 @@ import sys
 import time
 import uuid
 from datetime import datetime
+from pathlib import Path
 from typing import Dict, List, Optional, Any
 
 try:
@@ -32,13 +33,16 @@ from deployment_automation import create_deployment_automation, DeploymentAutoma
 from self_optimizer import create_self_optimizer, SelfOptimizer
 
 def load_config(config_path: str = "config/config.json") -> Dict[str, Any]:
-    """Load configuration from JSON file."""
+    """Load configuration from JSON file, trying cwd then project root."""
+    # Resolve path: first try as given, then relative to script directory
+    path = Path(config_path)
+    if not path.exists():
+        path = Path(__file__).parent / config_path
     try:
-        with open(config_path, 'r') as f:
-            config = json.load(f)
-        return config
+        with open(path, 'r') as f:
+            return json.load(f)
     except FileNotFoundError:
-        print(f"Config file not found: {config_path}")
+        print(f"Config file not found: {path}")
         sys.exit(1)
     except json.JSONDecodeError as e:
         print(f"Invalid JSON in config file: {e}")
