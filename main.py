@@ -592,6 +592,23 @@ def run_claude_task(task: Dict[str, Any], config: Dict[str, Any], session_id: Op
         print(f"🔮 [Claude] stderr length: {len(result.stderr)} chars")
         
         if result.returncode != 0:
+            stderr_lower = result.stderr.lower() if result.stderr else ""
+            # If resume failed because no conversation exists, retry without resume flag
+            if session_id and "no conversation found" in stderr_lower:
+                print(f"🔄 [Claude] No conversation for session {session_id}, retrying without resume")
+                # Remove --resume and its argument
+                new_cmd = []
+                skip = False
+                for tok in cli_cmd:
+                    if skip:
+                        skip = False
+                        continue
+                    if tok == "--resume":
+                        skip = True
+                        continue
+                    new_cmd.append(tok)
+                result = subprocess.run(new_cmd, capture_output=True, text=True, timeout=300, cwd=working_dir)
+        if result.returncode != 0:
             print(f"❌ [Claude] CLI error (exit code {result.returncode}):")
             print(f"❌ [Claude] stderr: {result.stderr}")
             if result.stdout:

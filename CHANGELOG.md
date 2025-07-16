@@ -11,6 +11,9 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - Ensure `load_config()` locates `config/config.json` relative to the project root when the working directory changes
 - Prevent background tasks from crashing on config load errors by guarding against missing or invalid config
 
+### 🛠️ Reliability Improvements
+- Handle Claude CLI resume failures gracefully: if the conversation ID is not found, retry without `--resume`
+
 ## [3.1.0] - 2025-07-13
 
 ### 🌐 Web IDE & Cross-Platform Support
