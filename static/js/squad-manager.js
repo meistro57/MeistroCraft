@@ -1,5 +1,5 @@
 /**
- * Claude-Squad Manager Component
+ * Crush-Squad Manager Component
  * Handles multi-agent AI development sessions
  */
 
@@ -8,7 +8,7 @@ class SquadManager {
         this.ide = ide;
         this.squadSessions = new Map();
         this.agentTypes = [
-            { value: 'claude-code', label: 'Claude Code', icon: '🤖' },
+            { value: 'crush-code', label: 'Crush Code', icon: '🤖' },
             { value: 'codex', label: 'OpenAI Codex', icon: '⚡' },
             { value: 'gemini', label: 'Google Gemini', icon: '💎' },
             { value: 'aider', label: 'Aider', icon: '🔧' },
@@ -30,7 +30,7 @@ class SquadManager {
             <div id="squadManager" class="squad-manager-overlay">
                 <div class="squad-manager-container">
                     <div class="squad-manager-header">
-                        <h2 class="squad-manager-title">🤖 Claude-Squad Manager</h2>
+                        <h2 class="squad-manager-title">🤖 Crush-Squad Manager</h2>
                         <button class="squad-manager-close" onclick="squadManager.close()">&times;</button>
                     </div>
                     
@@ -39,14 +39,14 @@ class SquadManager {
                         <div class="squad-status-info">
                             <div class="status-indicator" id="squadStatusIndicator">❓</div>
                             <div class="status-text">
-                                <h3 id="squadStatusTitle">Checking Claude-Squad...</h3>
+                                <h3 id="squadStatusTitle">Checking Crush-Squad...</h3>
                                 <p id="squadStatusMessage">Please wait while we check the installation status.</p>
                             </div>
                         </div>
                         
                         <div class="squad-actions" id="squadActions">
                             <button class="squad-btn squad-btn-primary" id="squadInstallBtn" onclick="squadManager.installSquad()" style="display: none;">
-                                📦 Install Claude-Squad
+                                📦 Install Crush-Squad
                             </button>
                             <button class="squad-btn squad-btn-secondary" id="squadRefreshBtn" onclick="squadManager.checkSquadStatus()">
                                 🔄 Refresh Status
@@ -214,7 +214,7 @@ class SquadManager {
         if (status.installed) {
             indicator.textContent = '✅';
             indicator.className = 'status-indicator status-success';
-            title.textContent = 'Claude-Squad Ready';
+            title.textContent = 'Crush-Squad Ready';
             message.textContent = `Version: ${status.version || 'Unknown'}`;
             installBtn.style.display = 'none';
             sessionsSection.style.display = 'block';
@@ -225,12 +225,12 @@ class SquadManager {
         } else {
             indicator.textContent = '❌';
             indicator.className = 'status-indicator status-error';
-            title.textContent = 'Claude-Squad Not Available';
+            title.textContent = 'Crush-Squad Not Available';
             
             if (status.errors && status.errors.length > 0) {
                 message.textContent = status.errors.join('; ');
             } else {
-                message.textContent = 'Claude-Squad is not installed or configured properly.';
+                message.textContent = 'Crush-Squad is not installed or configured properly.';
             }
             
             installBtn.style.display = 'block';
@@ -253,7 +253,7 @@ class SquadManager {
             const result = await response.json();
             
             if (result.success) {
-                this.showNotification('success', 'Claude-Squad installed successfully!');
+                this.showNotification('success', 'Crush-Squad installed successfully!');
                 await this.checkSquadStatus();
             } else {
                 this.showNotification('error', `Installation failed: ${result.error}`);
@@ -352,7 +352,7 @@ class SquadManager {
     
     showCreateSessionDialog() {
         if (!this.squadInstalled) {
-            this.showNotification('error', 'Claude-Squad must be installed first');
+            this.showNotification('error', 'Crush-Squad must be installed first');
             return;
         }
         
@@ -365,7 +365,7 @@ class SquadManager {
         
         // Reset form
         document.getElementById('sessionProjectPath').value = '';
-        document.getElementById('sessionAgentType').value = 'claude-code';
+        document.getElementById('sessionAgentType').value = 'crush-code';
         document.getElementById('sessionName').value = '';
         document.getElementById('sessionAutoAccept').checked = false;
     }

@@ -36,7 +36,7 @@
 ## 🔧 Technical Improvements
 
 ### Core System
-- [ ] **Multi-Agent Optimization**: Enhance GPT-4 + Claude coordination
+- [ ] **Multi-Agent Optimization**: Enhance GPT-4 + Crush coordination
 - [ ] **Memory Management**: Implement persistent memory system
 - [ ] **Error Handling**: Improve error recovery and logging
 - [ ] **Security**: Enhance authentication and authorization

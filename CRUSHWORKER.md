@@ -1,4 +1,4 @@
-# Claude Worker - AI Development Assistant
+# Crush Worker - AI Development Assistant
 
 ## 🤖 AI Assistant Profile
 
@@ -63,7 +63,7 @@
 - **Web IDE**: Browser-based development environment with VS Code-style interface
 - **Project Manager**: Advanced project management with grid/list views and bulk operations
 - **Session Management**: Persistent, auto-resuming development sessions
-- **AI Integration**: GPT-4 orchestration with Claude Code CLI execution
+- **AI Integration**: GPT-4 orchestration with Crush Code CLI execution
 - **Docker Support**: Full containerization with persistent volumes
 
 ### 🔄 Recent Improvements Implemented

@@ -1,4 +1,4 @@
-# MeistroCraft - GPT-4 Orchestrator with Claude Code CLI
+# MeistroCraft - GPT-4 Orchestrator with Crush Code CLI
 
 <div align="center">
   <img src="MeistroCraft_logo.png" alt="MeistroCraft Logo" width="120" height="120">
@@ -11,7 +11,7 @@
 [![Python 3.8+](https://img.shields.io/badge/python-3.8+-blue.svg)](https://www.python.org/downloads/)
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
 
-A sophisticated multi-agent system that combines GPT-4's strategic planning capabilities with Claude Code CLI's advanced coding expertise. Features a modern web-based IDE, real-time AI assistance, advanced project management, and enterprise-grade usage monitoring.
+A sophisticated multi-agent system that combines GPT-4's strategic planning capabilities with Crush Code CLI's advanced coding expertise. Features a modern web-based IDE, real-time AI assistance, advanced project management, and enterprise-grade usage monitoring.
 
 ## 🖼️ Screenshots
 
@@ -24,7 +24,7 @@ A sophisticated multi-agent system that combines GPT-4's strategic planning capa
 
 - **🌐 Browser-Based IDE**: Modern web interface with VS Code-style editing
 - **📁 Advanced Project Manager**: Grid/list views, multi-select, bulk operations
-- **🤖 AI Integration**: GPT-4 orchestration with Claude Code CLI execution
+- **🤖 AI Integration**: GPT-4 orchestration with Crush Code CLI execution
 - **🔄 Smart Session Management**: Auto-resume sessions with persistent storage
 - **📊 Token Tracking**: Real-time usage monitoring and cost management
 - **🐳 Docker Support**: Full containerization with persistent volumes
@@ -97,13 +97,13 @@ python main.py --github workflow owner/repo
 ### Core Components
 1. **Web IDE**: FastAPI backend with Monaco Editor frontend
 2. **Project Manager**: Advanced project organization with bulk operations
-3. **AI Orchestrator**: GPT-4 task generation + Claude Code CLI execution
+3. **AI Orchestrator**: GPT-4 task generation + Crush Code CLI execution
 4. **Session Manager**: Persistent sessions with auto-resume
 5. **GitHub Integration**: Complete workflow automation
 
 ### Multi-Agent Flow
 ```
-User Request → GPT-4 Analysis → Task Generation → Claude Execution → Validation → Results
+User Request → GPT-4 Analysis → Task Generation → Crush Execution → Validation → Results
 ```
 
 ## 🐳 Docker Features
@@ -173,9 +173,9 @@ python main.py --optimize analyze
 ## 📚 Documentation
 
 - **[SETUP_GUIDE.md](SETUP_GUIDE.md)**: Quick setup instructions
-- **[CLAUDE.md](CLAUDE.md)**: Technical documentation
+- **[CRUSH.md](CRUSH.md)**: Technical documentation
 - **[CHANGELOG.md](CHANGELOG.md)**: Release notes and improvements
-- **[CLAUDEWORKER.md](CLAUDEWORKER.md)**: AI assistant profile
+- **[CRUSHWORKER.md](CRUSHWORKER.md)**: AI assistant profile
 
 ## 🤝 Contributing
 
@@ -191,7 +191,7 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 
 ## 🙏 Acknowledgments
 
-- **Anthropic** for Claude Code CLI and API
+- **Anthropic** for Crush Code CLI and API
 - **OpenAI** for GPT-4 API and function calling
 - **Open Source Community** for dependencies and inspiration
 

@@ -30,7 +30,7 @@ class TestConfiguration:
             config = load_config()
             assert isinstance(config, dict)
             assert 'openai_api_key' in config
-            assert 'anthropic_api_key' in config
+            assert 'crush_api_key' in config
         except Exception as e:
             pytest.skip(f"Config loading failed: {e}")
 
@@ -43,7 +43,7 @@ class TestConfiguration:
 
             test_config = {
                 'openai_api_key': 'test-key',
-                'anthropic_api_key': 'test-key',
+                'crush_api_key': 'test-key',
                 'max_turns': 5
             }
 
@@ -183,7 +183,7 @@ class TestFileStructure:
             config = json.load(f)
             assert isinstance(config, dict)
             assert 'openai_api_key' in config
-            assert 'anthropic_api_key' in config
+            assert 'crush_api_key' in config
 
 
 class TestDockerfiles:

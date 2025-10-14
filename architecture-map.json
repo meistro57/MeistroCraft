@@ -20,7 +20,7 @@
         "description": "Core MeistroCraft backend integration",
         "key_functions": [
           "generate_task_with_gpt4: Task generation",
-          "execute_task_with_claude: Task execution",
+          "execute_task_with_crush: Task execution",
           "session management: Session lifecycle"
         ]
       },
@@ -108,7 +108,7 @@
       "1. User sends chat message",
       "2. Context enhanced with current file info",
       "3. GPT-4 generates task via main.py",
-      "4. Claude executes task via main.py", 
+      "4. Crush executes task via main.py", 
       "5. Streaming results sent to frontend",
       "6. UI updates with AI responses"
     ]

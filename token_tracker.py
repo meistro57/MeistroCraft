@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Token Tracking System for MeistroCraft
-Monitors and manages API token usage for OpenAI and Anthropic APIs.
+Monitors and manages API token usage for OpenAI and Crush APIs.
 """
 
 import json
@@ -15,7 +15,7 @@ from enum import Enum
 
 class ApiProvider(Enum):
     OPENAI = "openai"
-    ANTHROPIC = "anthropic"
+    CRUSH = "crush"
 
 
 class UsageType(Enum):
@@ -61,21 +61,21 @@ class TokenUsage:
         )
 
     @classmethod
-    def from_anthropic_response(
+    def from_crush_response(
             cls,
             response: Any,
             model: str,
             session_id: Optional[str] = None,
             task_type: Optional[str] = None) -> 'TokenUsage':
-        """Create TokenUsage from Anthropic API response."""
-        # Anthropic returns token usage in the response
+        """Create TokenUsage from Crush CLI response."""
+        # Crush CLI returns token usage in the response payload
         input_tokens = getattr(response.usage, 'input_tokens', 0)
         output_tokens = getattr(response.usage, 'output_tokens', 0)
         total_tokens = input_tokens + output_tokens
-        cost = cls._calculate_anthropic_cost(model, input_tokens, output_tokens)
+        cost = cls._calculate_crush_cost(model, input_tokens, output_tokens)
 
         return cls(
-            provider=ApiProvider.ANTHROPIC.value,
+            provider=ApiProvider.CRUSH.value,
             model=model,
             input_tokens=input_tokens,
             output_tokens=output_tokens,
@@ -108,19 +108,17 @@ class TokenUsage:
         return round(input_cost + output_cost, 6)
 
     @staticmethod
-    def _calculate_anthropic_cost(model: str, input_tokens: int, output_tokens: int) -> float:
-        """Calculate cost for Anthropic API usage based on current pricing."""
+    def _calculate_crush_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+        """Calculate cost for Crush CLI usage based on current pricing."""
         # Pricing as of July 2025 (these should be updated regularly)
         pricing = {
-            "claude-sonnet-4-20250514": {"input": 0.003, "output": 0.015},  # per 1K tokens
-            "claude-3-5-sonnet-20241022": {"input": 0.003, "output": 0.015},
-            "claude-3-opus-20240229": {"input": 0.015, "output": 0.075},
-            "claude-3-sonnet-20240229": {"input": 0.003, "output": 0.015},
-            "claude-3-haiku-20240307": {"input": 0.00025, "output": 0.00125},
+            "crush-pro-1": {"input": 0.0025, "output": 0.01},  # per 1K tokens
+            "crush-lite-1": {"input": 0.0005, "output": 0.002},
+            "crush-dev-1": {"input": 0.0015, "output": 0.006},
         }
 
         # Default pricing if model not found
-        default_pricing = {"input": 0.003, "output": 0.015}
+        default_pricing = {"input": 0.0025, "output": 0.01}
         model_pricing = pricing.get(model, default_pricing)
 
         input_cost = (input_tokens / 1000) * model_pricing["input"]
@@ -313,7 +311,7 @@ class TokenTracker:
         if today not in summary_data:
             summary_data[today] = {
                 "openai": {"requests": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0},
-                "anthropic": {"requests": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
+                "crush": {"requests": 0, "input_tokens": 0, "output_tokens": 0, "cost_usd": 0.0}
             }
 
         # Update summary

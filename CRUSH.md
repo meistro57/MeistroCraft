@@ -5,7 +5,7 @@ MeistroCraft is a comprehensive AI-powered development orchestrator with multipl
 
 1. **🌐 Browser IDE**: Modern web interface with VS Code-style editing and real-time AI assistance
 2. **⚡ Command Line Interface**: Split terminal UI for interactive coding sessions
-3. **🤖 Multi-Agent System**: GPT-4 strategic planning with Claude Code CLI execution
+3. **🤖 Multi-Agent System**: GPT-4 strategic planning with Crush Code CLI execution
 4. **🐙 GitHub Integration**: Complete workflow automation with PR/issue management
 5. **🐳 Docker Support**: Full containerization with persistent volumes
 6. **📁 Advanced Project Manager**: Grid/list views, multi-select, and bulk operations
@@ -46,7 +46,7 @@ MeistroCraft is a comprehensive AI-powered development orchestrator with multipl
 #### ⚡ Command Line Components
 
 4. **Main Orchestrator** - `main.py`
-   - Multi-agent coordination between GPT-4 and Claude
+   - Multi-agent coordination between GPT-4 and Crush
    - Session management and persistence
    - Token tracking and cost management
    - GitHub integration and workflow automation
@@ -77,7 +77,7 @@ MeistroCraft is a comprehensive AI-powered development orchestrator with multipl
 
 ### AI Integration
 - **Streaming Responses**: Real-time WebSocket communication
-- **Task Generation**: GPT-4 creates structured tasks for Claude execution
+- **Task Generation**: GPT-4 creates structured tasks for Crush execution
 - **Session Management**: Isolated project workspaces per session
 
 ### UI Layout
@@ -88,7 +88,7 @@ MeistroCraft is a comprehensive AI-powered development orchestrator with multipl
 ## File Structure
 
 ```
-/home/mark/claude-coder/ai_coding_agent/
+/home/mark/crush-coder/ai_coding_agent/
 ├── web_server.py              # FastAPI backend
 ├── templates/
 │   └── ide.html              # Main UI template
@@ -350,7 +350,7 @@ python main.py --performance benchmark
 ## Configuration
 
 - **API Keys**: Set in `config/config.json`
-- **Models**: GPT-4 for task generation, Claude for execution
+- **Models**: GPT-4 for task generation, Crush for execution
 - **Limits**: Token tracking and cost monitoring built-in
 
 ## Performance Notes

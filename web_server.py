@@ -28,8 +28,8 @@ from interactive_ui import InteractiveSession
 from task_queue import get_task_queue, TaskPriority, TaskStatus
 from workspace_manager import WorkspaceManager
 from token_tracker import TokenTracker
-from main import SessionManager, load_config, save_config, setup_environment, generate_task_with_gpt4, run_claude_task
-from claude_squad_bridge import squad_bridge, SquadAgentType, SquadSession
+from main import SessionManager, load_config, save_config, setup_environment, generate_task_with_gpt4, run_crush_task
+from crush_squad_bridge import squad_bridge, SquadAgentType, SquadSession
 
 app = FastAPI(
     title="MeistroCraft IDE",
@@ -248,7 +248,7 @@ async def get_settings():
         # Mock settings - in real implementation would read from config
         default_settings = {
             "api": {
-                "supported_models": ["gpt-4", "gpt-3.5-turbo", "claude-3-sonnet", "claude-3-haiku"],
+                "supported_models": ["gpt-4", "gpt-3.5-turbo", "crush-pro-1", "crush-dev-1", "crush-lite-1"],
                 "default_model": "gpt-4"
             },
             "editor": {
@@ -293,7 +293,7 @@ async def get_api_config():
                 "model": None,
                 "status": "not_configured"
             },
-            "anthropic": {
+            "crush": {
                 "configured": False,
                 "model": None,
                 "status": "not_configured"
@@ -313,13 +313,13 @@ async def get_api_config():
                 config_status["openai"]["model"] = session_manager.config.get("openai_model", "gpt-4")
                 config_status["openai"]["status"] = "configured"
 
-            # Check Anthropic configuration
-            anthropic_key = session_manager.config.get("anthropic_api_key")
-            if anthropic_key and not anthropic_key.startswith(
-                    "sk-ant-your-") and anthropic_key != "<YOUR_ANTHROPIC_API_KEY>":
-                config_status["anthropic"]["configured"] = True
-                config_status["anthropic"]["model"] = session_manager.config.get("claude_model", "claude-3-sonnet")
-                config_status["anthropic"]["status"] = "configured"
+            # Check Crush configuration
+            crush_key = session_manager.config.get("crush_api_key")
+            if crush_key and not crush_key.startswith(
+                    "sk-crush-your-") and crush_key != "<YOUR_CRUSH_API_KEY>":
+                config_status["crush"]["configured"] = True
+                config_status["crush"]["model"] = session_manager.config.get("crush_model", "crush-pro-1")
+                config_status["crush"]["status"] = "configured"
 
             # Check GitHub configuration
             github_key = session_manager.config.get("github_api_key")
@@ -344,10 +344,10 @@ async def save_api_config(request: Request):
         except BaseException:
             # If config doesn't exist, create a new one
             current_config = {
-                "anthropic_api_key": "<YOUR_ANTHROPIC_API_KEY>",
+                "crush_api_key": "<YOUR_CRUSH_API_KEY>",
                 "openai_api_key": "<YOUR_OPENAI_API_KEY>",
                 "github_api_key": "<YOUR_GITHUB_API_KEY>",
-                "claude_model": "claude-3-sonnet-20240229",
+                "crush_model": "crush-pro-1",
                 "openai_model": "gpt-4",
                 "max_tokens": 4000,
                 "max_context_length": 16000,
@@ -360,14 +360,14 @@ async def save_api_config(request: Request):
         # Update config with new values
         if body.get("openai_api_key"):
             current_config["openai_api_key"] = body["openai_api_key"]
-        if body.get("anthropic_api_key"):
-            current_config["anthropic_api_key"] = body["anthropic_api_key"]
+        if body.get("crush_api_key"):
+            current_config["crush_api_key"] = body["crush_api_key"]
         if body.get("github_api_key"):
             current_config["github_api_key"] = body["github_api_key"]
         if body.get("openai_model"):
             current_config["openai_model"] = body["openai_model"]
-        if body.get("claude_model"):
-            current_config["claude_model"] = body["claude_model"]
+        if body.get("crush_model"):
+            current_config["crush_model"] = body["crush_model"]
 
         # Save config to file
         save_config(current_config)
@@ -389,7 +389,7 @@ async def test_api_key(request: Request):
     """Test an API key for validity."""
     try:
         body = await request.json()
-        provider = body.get("provider")  # "openai", "anthropic", or "github"
+        provider = body.get("provider")  # "openai", "crush", or "github"
         api_key = body.get("api_key")
 
         if not provider or not api_key:
@@ -460,25 +460,25 @@ async def test_api_key(request: Request):
                     "message": str(e)
                 }
 
-        elif provider == "anthropic":
-            # Test Anthropic API key
+        elif provider == "crush":
+            # Test Crush API key
             try:
                 import requests
                 headers = {
                     "x-api-key": api_key,
-                    "anthropic-version": "2023-06-01",
+                    "crush-version": "2025-01-01",
                     "content-type": "application/json"
                 }
 
                 # Simple test call to check key validity
                 test_data = {
-                    "model": "claude-3-haiku-20240307",
+                    "model": "crush-lite-1",
                     "max_tokens": 10,
                     "messages": [{"role": "user", "content": "Hi"}]
                 }
 
                 response = requests.post(
-                    "https://api.anthropic.com/v1/messages",
+                    "https://api.crush.com/v1/messages",
                     headers=headers,
                     json=test_data,
                     timeout=30
@@ -817,8 +817,8 @@ async def generate_project(request: Request):
         if not task:
             raise HTTPException(status_code=500, detail="Failed to generate project task")
 
-        # Execute with Claude
-        result = run_claude_task(
+        # Execute with Crush
+        result = run_crush_task(
             task,
             session_manager.config,
             meistrocraft_session_id,
@@ -1195,12 +1195,12 @@ async def import_project(request: Request):
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
 
-# Claude-Squad Integration Endpoints
+# Crush-Squad Integration Endpoints
 
 
 @app.get("/api/squad/status")
 async def get_squad_status():
-    """Check claude-squad installation and status."""
+    """Check crush-squad installation and status."""
     try:
         status = await squad_bridge.check_installation()
         return status
@@ -1210,7 +1210,7 @@ async def get_squad_status():
 
 @app.post("/api/squad/install")
 async def install_squad():
-    """Install claude-squad if not present."""
+    """Install crush-squad if not present."""
     try:
         result = await squad_bridge.install_squad()
         if result["success"]:
@@ -1223,7 +1223,7 @@ async def install_squad():
 
 @app.get("/api/squad/sessions")
 async def list_squad_sessions():
-    """List all active claude-squad sessions."""
+    """List all active crush-squad sessions."""
     try:
         sessions = await squad_bridge.list_sessions()
         return {
@@ -1247,11 +1247,11 @@ async def list_squad_sessions():
 
 @app.post("/api/squad/sessions")
 async def create_squad_session(request: Request):
-    """Create a new claude-squad session."""
+    """Create a new crush-squad session."""
     try:
         body = await request.json()
         project_path = body.get("project_path")
-        agent_type = body.get("agent_type", "claude-code")
+        agent_type = body.get("agent_type", "crush-code")
         session_name = body.get("session_name")
         auto_accept = body.get("auto_accept", False)
 
@@ -1286,7 +1286,7 @@ async def create_squad_session(request: Request):
 
     except Exception as e:
         if "SquadInstallationError" in str(type(e)):
-            raise HTTPException(status_code=503, detail="Claude-squad not installed")
+            raise HTTPException(status_code=503, detail="Crush-squad not installed")
         elif "SquadSessionError" in str(type(e)):
             raise HTTPException(status_code=400, detail=str(e))
         else:
@@ -1321,7 +1321,7 @@ async def execute_squad_command(session_id: str, request: Request):
 
 @app.delete("/api/squad/sessions/{session_id}")
 async def terminate_squad_session(session_id: str):
-    """Terminate a claude-squad session."""
+    """Terminate a crush-squad session."""
     try:
         success = await squad_bridge.terminate_session(session_id)
         if success:
@@ -1978,9 +1978,9 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                     "chunk": f"🎯 Task: {task['action']} - {task['instruction'][:100]}{'...' if len(task['instruction']) > 100 else ''}\n\n"
                 }))
 
-                # Execute with Claude
+                # Execute with Crush
                 try:
-                    result = run_claude_task(
+                    result = run_crush_task(
                         task,
                         session_manager.config,
                         meistrocraft_session_id,
@@ -1988,9 +1988,9 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                         project_folder,
                         session_manager.token_tracker
                     )
-                except Exception as claude_error:
-                    print(f"Claude task execution failed: {claude_error}")
-                    result = {"success": False, "error": str(claude_error)}
+                except Exception as crush_error:
+                    print(f"Crush task execution failed: {crush_error}")
+                    result = {"success": False, "error": str(crush_error)}
 
                 if result.get("success"):
                     # Stream the response
@@ -2075,12 +2075,12 @@ async def handle_websocket_message(websocket: WebSocket, session_id: str, messag
                 if not os.path.exists(projects_dir):
                     os.makedirs(projects_dir)
 
-                # Create template CLAUDE.md if it doesn't exist
-                template_claude_path = os.path.join(projects_dir, "CLAUDE.md")
-                if not os.path.exists(template_claude_path):
+                # Create template CRUSH.md if it doesn't exist
+                template_crush_path = os.path.join(projects_dir, "CRUSH.md")
+                if not os.path.exists(template_crush_path):
                     template_content = """# Project Instructions
 
-This is a template CLAUDE.md file for your project.
+This is a template CRUSH.md file for your project.
 
 ## Overview
 Add your project description here.
@@ -2091,7 +2091,7 @@ Add setup instructions here.
 ## Development Guidelines
 Add development guidelines here.
 """
-                    with open(template_claude_path, 'w') as f:
+                    with open(template_crush_path, 'w') as f:
                         f.write(template_content)
 
                 working_dir = projects_dir
@@ -2271,7 +2271,7 @@ Add development guidelines here.
         await websocket.send_text(json.dumps(response))
 
     elif message_type == "squad_command":
-        # Handle claude-squad commands via WebSocket
+        # Handle crush-squad commands via WebSocket
         operation = message.get("operation")
 
         try:
@@ -2310,7 +2310,7 @@ Add development guidelines here.
             elif operation == "create_session":
                 # Create new squad session
                 project_path = message.get("project_path")
-                agent_type = message.get("agent_type", "claude-code")
+                agent_type = message.get("agent_type", "crush-code")
 
                 if not project_path:
                     raise ValueError("Project path is required")

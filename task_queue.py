@@ -281,7 +281,7 @@ class TaskQueue:
                 print(f"🚀 Starting task {task.task_id}: {task.task_description}")
 
                 # Import here to avoid circular imports
-                from main import generate_task_with_gpt4, run_claude_task
+                from main import generate_task_with_gpt4, run_crush_task
                 from main import create_project_summary, create_project_readme
 
                 # Update progress
@@ -312,11 +312,11 @@ class TaskQueue:
                     raise Exception("Failed to generate task with GPT-4")
 
                 task.progress = 0.4
-                task.progress_message = f"Executing with Claude: {gpt_task['action']}"
+                task.progress_message = f"Executing with Crush: {gpt_task['action']}"
                 self._notify_progress_callbacks(task)
 
-                # Execute with Claude
-                result = run_claude_task(gpt_task, config, None, None, project_folder, None)
+                # Execute with Crush
+                result = run_crush_task(gpt_task, config, None, None, project_folder, None)
 
                 task.progress = 0.8
                 task.progress_message = "Processing results..."
@@ -330,7 +330,7 @@ class TaskQueue:
                     task.status = TaskStatus.COMPLETED
                     task.result = {
                         'gpt_task': gpt_task,
-                        'claude_result': result,
+                        'crush_result': result,
                         'success': True
                     }
                     task.progress = 1.0
@@ -342,7 +342,7 @@ class TaskQueue:
                     self._check_dependent_tasks(task.task_id)
 
                 else:
-                    raise Exception(f"Claude execution failed: {result.get('error', 'Unknown error')}")
+                    raise Exception(f"Crush execution failed: {result.get('error', 'Unknown error')}")
 
             except Exception as e:
                 task.status = TaskStatus.FAILED

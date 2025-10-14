@@ -1,6 +1,6 @@
 """
-Claude-Squad Integration Bridge
-Handles subprocess communication with claude-squad-unginged for multi-agent AI development.
+Crush-Squad Integration Bridge
+Handles subprocess communication with crush-squad-unginged for multi-agent AI development.
 """
 
 import os
@@ -17,8 +17,8 @@ logger = logging.getLogger(__name__)
 
 
 class SquadAgentType(Enum):
-    """Available Claude-Squad agent types"""
-    CLAUDE_CODE = "claude-code"
+    """Available Crush-Squad agent types"""
+    CRUSH_CODE = "crush-code"
     CODEX = "codex"
     GEMINI = "gemini"
     AIDER = "aider"
@@ -27,7 +27,7 @@ class SquadAgentType(Enum):
 
 @dataclass
 class SquadSession:
-    """Represents a claude-squad session"""
+    """Represents a crush-squad session"""
     session_id: str
     agent_type: SquadAgentType
     project_path: str
@@ -39,7 +39,7 @@ class SquadSession:
 
 
 class SquadInstallationError(Exception):
-    """Raised when claude-squad is not properly installed"""
+    """Raised when crush-squad is not properly installed"""
     pass
 
 
@@ -48,8 +48,8 @@ class SquadSessionError(Exception):
     pass
 
 
-class ClaudeSquadBridge:
-    """Bridge between MeistroCraft and Claude-Squad"""
+class CrushSquadBridge:
+    """Bridge between MeistroCraft and Crush-Squad"""
 
     def __init__(self, projects_root: str = "projects"):
         self.projects_root = Path(projects_root)
@@ -58,14 +58,14 @@ class ClaudeSquadBridge:
         self._installation_checked = False
 
     def _find_squad_command(self) -> Optional[str]:
-        """Find the claude-squad command in PATH"""
+        """Find the crush-squad command in PATH"""
         # Check common installation paths
         possible_commands = [
-            "claude-squad",
+            "crush-squad",
             "squad",
-            "/usr/local/bin/claude-squad",
-            "/opt/homebrew/bin/claude-squad",
-            os.path.expanduser("~/.local/bin/claude-squad")
+            "/usr/local/bin/crush-squad",
+            "/opt/homebrew/bin/crush-squad",
+            os.path.expanduser("~/.local/bin/crush-squad")
         ]
 
         for cmd in possible_commands:
@@ -75,7 +75,7 @@ class ClaudeSquadBridge:
         return None
 
     async def check_installation(self) -> Dict[str, Any]:
-        """Check if claude-squad is properly installed and configured"""
+        """Check if crush-squad is properly installed and configured"""
         if self._installation_checked:
             return {"installed": self.squad_command is not None}
 
@@ -88,7 +88,7 @@ class ClaudeSquadBridge:
             "errors": []
         }
 
-        # Check claude-squad command
+        # Check crush-squad command
         if self.squad_command:
             result["squad_command"] = self.squad_command
             try:
@@ -106,7 +106,7 @@ class ClaudeSquadBridge:
             except Exception as e:
                 result["errors"].append(f"Failed to run squad command: {e}")
         else:
-            result["errors"].append("Claude-squad command not found in PATH")
+            result["errors"].append("Crush-squad command not found in PATH")
 
         # Check dependencies
         dependencies = {
@@ -125,14 +125,14 @@ class ClaudeSquadBridge:
         return result
 
     async def install_squad(self) -> Dict[str, Any]:
-        """Attempt to install claude-squad via the installation script"""
+        """Attempt to install crush-squad via the installation script"""
         if not shutil.which("curl"):
             return {"success": False, "error": "curl not available for installation"}
 
         try:
             # Download and run the installation script
             install_script = """
-            curl -fsSL https://raw.githubusercontent.com/meistro57/claude-squad-unginged/main/install.sh | bash
+            curl -fsSL https://raw.githubusercontent.com/meistro57/crush-squad-unginged/main/install.sh | bash
             """
 
             proc = await asyncio.create_subprocess_shell(
@@ -151,7 +151,7 @@ class ClaudeSquadBridge:
 
                 return {
                     "success": True,
-                    "message": "Claude-squad installed successfully",
+                    "message": "Crush-squad installed successfully",
                     "installation_output": stdout.decode(),
                     "check_result": install_result
                 }
@@ -167,13 +167,13 @@ class ClaudeSquadBridge:
 
     async def create_session(self,
                              project_path: str,
-                             agent_type: SquadAgentType = SquadAgentType.CLAUDE_CODE,
+                             agent_type: SquadAgentType = SquadAgentType.CRUSH_CODE,
                              session_name: Optional[str] = None,
                              auto_accept: bool = False) -> SquadSession:
-        """Create a new claude-squad session"""
+        """Create a new crush-squad session"""
 
         if not self.squad_command:
-            raise SquadInstallationError("Claude-squad not installed")
+            raise SquadInstallationError("Crush-squad not installed")
 
         # Ensure project path exists and is absolute
         abs_project_path = (self.projects_root / project_path).resolve()
@@ -232,7 +232,7 @@ class ClaudeSquadBridge:
             raise SquadSessionError(f"Exception creating session: {e}")
 
     def _parse_session_output(self, output: str) -> Dict[str, str]:
-        """Parse claude-squad command output for session information"""
+        """Parse crush-squad command output for session information"""
         info = {}
         lines = output.strip().split('\n')
 
@@ -249,7 +249,7 @@ class ClaudeSquadBridge:
         return info
 
     async def list_sessions(self) -> List[SquadSession]:
-        """List all active claude-squad sessions"""
+        """List all active crush-squad sessions"""
         if not self.squad_command:
             return []
 
@@ -279,7 +279,7 @@ class ClaudeSquadBridge:
             return []
 
     def _parse_session_list(self, output: str) -> List[SquadSession]:
-        """Parse the output of 'claude-squad list' command"""
+        """Parse the output of 'crush-squad list' command"""
         sessions = []
         lines = output.strip().split('\n')
 
@@ -290,7 +290,7 @@ class ClaudeSquadBridge:
                 if current_session:
                     session = SquadSession(
                         session_id=current_session.get('id', ''),
-                        agent_type=SquadAgentType(current_session.get('agent', 'claude-code')),
+                        agent_type=SquadAgentType(current_session.get('agent', 'crush-code')),
                         project_path=current_session.get('project', ''),
                         branch_name=current_session.get('branch', ''),
                         status=current_session.get('status', 'unknown'),
@@ -309,7 +309,7 @@ class ClaudeSquadBridge:
         if current_session:
             session = SquadSession(
                 session_id=current_session.get('id', ''),
-                agent_type=SquadAgentType(current_session.get('agent', 'claude-code')),
+                agent_type=SquadAgentType(current_session.get('agent', 'crush-code')),
                 project_path=current_session.get('project', ''),
                 branch_name=current_session.get('branch', ''),
                 status=current_session.get('status', 'unknown'),
@@ -333,7 +333,7 @@ class ClaudeSquadBridge:
         session = self.active_sessions[session_id]
 
         try:
-            # Execute command via claude-squad
+            # Execute command via crush-squad
             cmd = [
                 self.squad_command,
                 "exec",
@@ -376,7 +376,7 @@ class ClaudeSquadBridge:
             }
 
     async def terminate_session(self, session_id: str) -> bool:
-        """Terminate a claude-squad session"""
+        """Terminate a crush-squad session"""
         if not self.squad_command:
             return False
 
@@ -438,4 +438,4 @@ class ClaudeSquadBridge:
 
 
 # Global bridge instance
-squad_bridge = ClaudeSquadBridge()
+squad_bridge = CrushSquadBridge()

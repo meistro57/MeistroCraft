@@ -129,7 +129,7 @@ if __name__ == "__main__":
 Welcome to the MeistroCraft IDE! This is a powerful browser-based development environment with AI assistance.
 
 ### Features:
-- **AI-Powered Coding**: Chat with GPT-4 and Claude to generate code, fix bugs, and get explanations
+- **AI-Powered Coding**: Chat with GPT-4 and Crush to generate code, fix bugs, and get explanations
 - **Project Management**: Isolated project folders for each session
 - **Live Preview**: View Markdown and HTML files in real-time
 - **File Explorer**: Navigate your project files easily
@@ -1519,7 +1519,7 @@ Happy coding! 🚀
         this.settings = {
             // API Configuration
             openaiKey: '',
-            anthropicKey: '',
+            crushKey: '',
             githubKey: '',
             defaultModel: 'gpt-4',
             
@@ -1592,12 +1592,12 @@ Happy coding! 🚀
     updateSettingsUI() {
         // Update all form elements with current settings
         const openaiKeyField = document.getElementById('openaiKey');
-        const anthropicKeyField = document.getElementById('anthropicKey');
+        const crushKeyField = document.getElementById('crushKey');
         const githubKeyField = document.getElementById('githubKey');
         const defaultModelField = document.getElementById('defaultModel');
         
         if (openaiKeyField) openaiKeyField.value = this.settings.openaiKey || '';
-        if (anthropicKeyField) anthropicKeyField.value = this.settings.anthropicKey || '';
+        if (crushKeyField) crushKeyField.value = this.settings.crushKey || '';
         if (githubKeyField) githubKeyField.value = this.settings.githubKey || '';
         if (defaultModelField) defaultModelField.value = this.settings.defaultModel || 'gpt-4';
         
@@ -1661,7 +1661,7 @@ Happy coding! 🚀
         // Collect all settings from UI
         this.settings = {
             openaiKey: document.getElementById('openaiKey').value,
-            anthropicKey: document.getElementById('anthropicKey').value,
+            crushKey: document.getElementById('crushKey').value,
             githubKey: document.getElementById('githubKey').value,
             defaultModel: document.getElementById('defaultModel').value,
             
@@ -1686,7 +1686,7 @@ Happy coding! 🚀
         
         console.log('🔧 Collected settings:', {
             openaiKey: this.settings.openaiKey ? `${this.settings.openaiKey.substring(0, 8)}...` : 'empty',
-            anthropicKey: this.settings.anthropicKey ? `${this.settings.anthropicKey.substring(0, 8)}...` : 'empty',
+            crushKey: this.settings.crushKey ? `${this.settings.crushKey.substring(0, 8)}...` : 'empty',
             githubKey: this.settings.githubKey ? `${this.settings.githubKey.substring(0, 8)}...` : 'empty'
         });
         
@@ -1698,8 +1698,8 @@ Happy coding! 🚀
         if (this.settings.openaiKey && this.settings.openaiKey.trim() !== '') {
             apiConfig.openai_api_key = this.settings.openaiKey;
         }
-        if (this.settings.anthropicKey && this.settings.anthropicKey.trim() !== '') {
-            apiConfig.anthropic_api_key = this.settings.anthropicKey;
+        if (this.settings.crushKey && this.settings.crushKey.trim() !== '') {
+            apiConfig.crush_api_key = this.settings.crushKey;
         }
         if (this.settings.githubKey && this.settings.githubKey.trim() !== '') {
             apiConfig.github_api_key = this.settings.githubKey;
@@ -1707,8 +1707,8 @@ Happy coding! 🚀
         if (this.settings.defaultModel) {
             if (this.settings.defaultModel.startsWith('gpt-')) {
                 apiConfig.openai_model = this.settings.defaultModel;
-            } else if (this.settings.defaultModel.startsWith('claude-')) {
-                apiConfig.claude_model = this.settings.defaultModel;
+            } else if (this.settings.defaultModel.startsWith('crush-')) {
+                apiConfig.crush_model = this.settings.defaultModel;
             }
         }
         
@@ -2158,7 +2158,7 @@ Happy coding! 🚀
     async checkAllAPIKeys() {
         await Promise.all([
             this.testAPIKey('openai'),
-            this.testAPIKey('anthropic'),
+            this.testAPIKey('crush'),
             this.testAPIKey('github')
         ]);
     }
@@ -2178,13 +2178,13 @@ Happy coding! 🚀
                     document.getElementById('openaiKey').placeholder = 'sk-...';
                 }
                 
-                // Update Anthropic status
-                if (config.anthropic.configured) {
-                    this.updateAPIStatus('anthropic', 'valid', `Configured (${config.anthropic.model})`);
-                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...(configured)';
+                // Update Crush status
+                if (config.crush.configured) {
+                    this.updateAPIStatus('crush', 'valid', `Configured (${config.crush.model})`);
+                    document.getElementById('crushKey').placeholder = 'sk-crush-...(configured)';
                 } else {
-                    this.updateAPIStatus('anthropic', 'invalid', 'Not Configured');
-                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...';
+                    this.updateAPIStatus('crush', 'invalid', 'Not Configured');
+                    document.getElementById('crushKey').placeholder = 'sk-crush-...';
                 }
                 
                 this.showNotification('info', 'API configuration loaded');
@@ -2194,7 +2194,7 @@ Happy coding! 🚀
         } catch (error) {
             console.error('Error loading API config:', error);
             this.updateAPIStatus('openai', 'unknown', 'Error');
-            this.updateAPIStatus('anthropic', 'unknown', 'Error');
+            this.updateAPIStatus('crush', 'unknown', 'Error');
             this.showNotification('error', 'Failed to load API configuration');
         }
     }
@@ -2237,20 +2237,20 @@ Happy coding! 🚀
                     this.updateAPIStatus('openai', 'invalid', 'Not Set');
                 }
                 
-                if (config.anthropic?.configured) {
-                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...(configured)';
-                    this.updateAPIStatus('anthropic', 'valid', 'Configured');
+                if (config.crush?.configured) {
+                    document.getElementById('crushKey').placeholder = 'sk-crush-...(configured)';
+                    this.updateAPIStatus('crush', 'valid', 'Configured');
                     // Update default model if available and no OpenAI model was set
-                    if (config.anthropic.model && !config.openai?.configured) {
-                        document.getElementById('defaultModel').value = config.anthropic.model;
+                    if (config.crush.model && !config.openai?.configured) {
+                        document.getElementById('defaultModel').value = config.crush.model;
                         // Also update our local settings to match backend
-                        this.settings.defaultModel = config.anthropic.model;
+                        this.settings.defaultModel = config.crush.model;
                     }
                     // Clear the input since it's already configured
-                    document.getElementById('anthropicKey').value = '';
+                    document.getElementById('crushKey').value = '';
                 } else {
-                    document.getElementById('anthropicKey').placeholder = 'sk-ant-...';
-                    this.updateAPIStatus('anthropic', 'invalid', 'Not Set');
+                    document.getElementById('crushKey').placeholder = 'sk-crush-...';
+                    this.updateAPIStatus('crush', 'invalid', 'Not Set');
                 }
                 
                 if (config.github?.configured) {
@@ -2271,7 +2271,7 @@ Happy coding! 🚀
             console.error('Error loading backend config:', error);
             // Set default status when loading fails
             this.updateAPIStatus('openai', 'unknown', 'Unknown');
-            this.updateAPIStatus('anthropic', 'unknown', 'Unknown');
+            this.updateAPIStatus('crush', 'unknown', 'Unknown');
             this.updateAPIStatus('github', 'unknown', 'Unknown');
         }
     }
