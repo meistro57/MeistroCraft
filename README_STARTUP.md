@@ -36,7 +36,7 @@ All start scripts automatically handle:
    ```json
    {
      "openai_api_key": "your-openai-key-here",
-     "anthropic_api_key": "your-anthropic-key-here",
+     "crush_api_key": "your-crush-key-here",
      "github_api_key": "your-github-token-here"
    }
    ```
@@ -92,7 +92,7 @@ chmod +x start_ide.py start_ide.sh
 
 Once started, the IDE provides:
 
-- 🤖 **AI-Powered Development** with GPT-4 and Claude
+- 🤖 **AI-Powered Development** with GPT-4 and Crush
 - 📁 **Project Management** with isolated workspaces  
 - 🌐 **Browser-Based Interface** at http://localhost:8000
 - 🔧 **Integrated Terminal** and file explorer

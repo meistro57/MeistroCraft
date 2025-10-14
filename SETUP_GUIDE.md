@@ -36,7 +36,7 @@ python3 start_ide.py
 2. Click the ⚙️ Settings icon
 3. Enter your API keys:
    - **OpenAI API Key**: `sk-your-openai-key-here`
-   - **Anthropic API Key**: `sk-ant-your-anthropic-key-here`
+   - **Crush API Key**: `sk-crush-your-api-key-here`
    - **GitHub Token**: `ghp_your-github-token-here` (optional)
 4. Click "Save Settings"
 
@@ -148,7 +148,7 @@ docker-compose up --build
 ## 📚 Additional Resources
 
 - **README.md**: Comprehensive feature documentation
-- **CLAUDE.md**: Technical documentation for developers
+- **CRUSH.md**: Technical documentation for developers
 - **CHANGELOG.md**: Detailed release notes and improvements
 
 ## 🆘 Getting Help

@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-MeistroCraft - GPT-4 Orchestrator with Claude Code CLI
-Main orchestrator script that coordinates between GPT-4 planner and Claude coder.
+MeistroCraft - GPT-4 Orchestrator with Crush CLI
+Main orchestrator script that coordinates between GPT-4 planner and Crush coder.
 """
 
 import json
@@ -39,6 +39,12 @@ def load_config(config_path: str = "config/config.json") -> Dict[str, Any]:
             config = json.load(f)
         return config
     except FileNotFoundError:
+        template_path = config_path.replace('.json', '.template.json')
+        if os.path.exists(template_path):
+            print(f"Config file not found at {config_path}, loading template {template_path}")
+            with open(template_path, 'r') as f:
+                config = json.load(f)
+            return config
         print(f"Config file not found: {config_path}")
         sys.exit(1)
     except json.JSONDecodeError as e:
@@ -62,17 +68,17 @@ def save_config(config: Dict[str, Any], config_path: str = "config/config.json")
 
 def setup_environment(config: Dict[str, Any]) -> None:
     """Set up environment variables for API keys."""
-    if config.get("anthropic_api_key") and config["anthropic_api_key"] != "<YOUR_ANTHROPIC_API_KEY>":
-        os.environ["ANTHROPIC_API_KEY"] = config["anthropic_api_key"]
+    if config.get("crush_api_key") and config["crush_api_key"] != "<YOUR_CRUSH_API_KEY>":
+        os.environ["CRUSH_API_KEY"] = config["crush_api_key"]
 
     # Check if API key is set
-    if not os.environ.get("ANTHROPIC_API_KEY"):
-        print("Error: ANTHROPIC_API_KEY not set. Please update config.json or set environment variable.")
+    if not os.environ.get("CRUSH_API_KEY"):
+        print("Error: CRUSH_API_KEY not set. Please update config.json or set environment variable.")
         sys.exit(1)
 
 
 class SessionManager:
-    """Manages Claude CLI sessions for multi-turn conversations."""
+    """Manages Crush CLI sessions for multi-turn conversations."""
 
     def __init__(self, sessions_dir: str = "sessions", workspace_manager: Optional[WorkspaceManager] = None):
         self.sessions_dir = sessions_dir
@@ -509,7 +515,7 @@ This is a sandboxed workspace for the MeistroCraft session. All files created du
 
 ## Getting Started
 1. Use the terminal commands to interact with this project
-2. Files created by Claude will appear in this directory
+2. Files created by Crush will appear in this directory
 3. Use `/test`, `/run`, and `/build` commands to work with your project
 """
         readme_file = os.path.join(project_folder, "README.md")
@@ -519,7 +525,7 @@ This is a sandboxed workspace for the MeistroCraft session. All files created du
         return project_folder
 
 
-def run_claude_task(task: Dict[str,
+def run_crush_task(task: Dict[str,
                                Any],
                     config: Dict[str,
                                  Any],
@@ -529,7 +535,7 @@ def run_claude_task(task: Dict[str,
                     token_tracker: Optional[TokenTracker] = None) -> Dict[str,
                                                                           Any]:
     """
-    Execute a task using Claude Code CLI.
+    Execute a task using Crush CLI.
 
     Args:
         task: Task dictionary with action, instruction, etc.
@@ -538,7 +544,7 @@ def run_claude_task(task: Dict[str,
     Returns:
         Dictionary with result and metadata
     """
-    # Compose the prompt for Claude based on the task
+    # Compose the prompt for Crush based on the task
     if task.get("filename"):
         prompt_text = f"Please apply the following instruction.\nFile: {task['filename']}\nInstruction: {task['instruction']}"
         if task.get("context"):
@@ -554,16 +560,16 @@ def run_claude_task(task: Dict[str,
 
     # Build the CLI command
     cli_cmd = [
-        "claude", "-p", prompt_text,
+        "crush", "-p", prompt_text,
         "--output-format", "json",
         "--max-turns", str(config.get("max_turns", 5))
     ]
 
     # Add session resume if continuing an existing session
-    # Only resume if we have evidence that the Claude CLI session already exists
+    # Only resume if we have evidence that the Crush CLI session already exists
     if session_id and session_manager:
         session_data = session_manager.load_session(session_id)
-        # Only resume if this session has had successful Claude interactions before
+        # Only resume if this session has had successful Crush interactions before
         if session_data and session_data.get("task_history"):
             cli_cmd += ["--resume", session_id]
 
@@ -579,14 +585,14 @@ def run_claude_task(task: Dict[str,
     permission_mode = config.get("permission_mode", "acceptEdits")
     cli_cmd += ["--permission-mode", permission_mode]
 
-    print(f"Running Claude CLI: {' '.join(cli_cmd[:3])} [additional flags omitted]")
+    print(f"Running Crush CLI: {' '.join(cli_cmd[:3])} [additional flags omitted]")
 
     try:
-        # Run the Claude CLI subprocess
+        # Run the Crush CLI subprocess
         result = subprocess.run(cli_cmd, capture_output=True, text=True, timeout=300, cwd=working_dir)
 
         if result.returncode != 0:
-            print(f"Claude CLI error (exit code {result.returncode}):")
+            print(f"Crush CLI error (exit code {result.returncode}):")
             print(result.stderr)
             return {
                 "success": False,
@@ -598,7 +604,7 @@ def run_claude_task(task: Dict[str,
         try:
             response = json.loads(result.stdout)
         except json.JSONDecodeError:
-            print("Failed to parse Claude output as JSON:")
+            print("Failed to parse Crush output as JSON:")
             print(result.stdout)
             return {
                 "success": False,
@@ -606,10 +612,10 @@ def run_claude_task(task: Dict[str,
                 "raw_output": result.stdout
             }
 
-        # Track Claude token usage if available in response
+        # Track Crush token usage if available in response
         if token_tracker and response.get("usage"):
             try:
-                model = config.get("claude_model", "claude-sonnet-4-20250514")
+                model = config.get("crush_model", "crush-pro-1")
                 usage_data = response["usage"]
 
                 # Create a mock response object for the tracker
@@ -628,18 +634,18 @@ def run_claude_task(task: Dict[str,
                 )
                 mock_response = MockResponse(mock_usage)
 
-                usage = TokenUsage.from_anthropic_response(
+                usage = TokenUsage.from_crush_response(
                     mock_response, model, session_id, task.get(
-                        "action", "claude_task"))
+                        "action", "crush_task"))
                 token_tracker.track_usage(usage)
                 print(
-                    f"🔢 Claude Usage: {usage.input_tokens} in + {usage.output_tokens} out = {usage.total_tokens} tokens (${usage.cost_usd:.4f})")
+                    f"🔢 Crush Usage: {usage.input_tokens} in + {usage.output_tokens} out = {usage.total_tokens} tokens (${usage.cost_usd:.4f})")
             except Exception as e:
-                print(f"Warning: Could not track Claude token usage: {e}")
+                print(f"Warning: Could not track Crush token usage: {e}")
 
-        # Check for Claude-reported errors
+        # Check for Crush-reported errors
         if response.get("is_error"):
-            print(f"Claude reported an error: {response.get('subtype', 'Unknown error')}")
+            print(f"Crush reported an error: {response.get('subtype', 'Unknown error')}")
             return {
                 "success": False,
                 "error": response.get("subtype", "Unknown error"),
@@ -650,7 +656,7 @@ def run_claude_task(task: Dict[str,
             "success": True,
             "result": response.get("result", ""),
             "response": response,
-            "session_id": response.get("session_id")  # Claude CLI includes session_id in JSON output
+            "session_id": response.get("session_id")  # Crush CLI includes session_id in JSON output
         }
 
         # Save task to session if session manager is provided
@@ -662,13 +668,13 @@ def run_claude_task(task: Dict[str,
         return result
 
     except subprocess.TimeoutExpired:
-        print("Claude CLI timed out after 5 minutes")
+        print("Crush CLI timed out after 5 minutes")
         return {
             "success": False,
             "error": "Timeout after 5 minutes"
         }
     except Exception as e:
-        print(f"Unexpected error running Claude CLI: {e}")
+        print(f"Unexpected error running Crush CLI: {e}")
         return {
             "success": False,
             "error": str(e)
@@ -700,10 +706,10 @@ def validate_task(task: Dict[str, Any]) -> bool:
 
 
 def get_function_schema() -> Dict[str, Any]:
-    """Define the OpenAI function calling schema for Claude tasks."""
+    """Define the OpenAI function calling schema for Crush tasks."""
     return {
-        "name": "invoke_claude_task",
-        "description": "Instruct Claude Code CLI to perform a coding task.",
+        "name": "invoke_crush_task",
+        "description": "Instruct Crush Code CLI to perform a coding task.",
         "parameters": {
             "type": "object",
             "properties": {
@@ -718,7 +724,7 @@ def get_function_schema() -> Dict[str, Any]:
                 },
                 "instruction": {
                     "type": "string",
-                    "description": "Detailed instructions for Claude about what to do"
+                    "description": "Detailed instructions for Crush about what to do"
                 },
                 "context": {
                     "type": "string",
@@ -727,7 +733,7 @@ def get_function_schema() -> Dict[str, Any]:
                 "tools": {
                     "type": "array",
                     "items": {"type": "string"},
-                    "description": "Optional list of tools Claude is allowed to use for this task"
+                    "description": "Optional list of tools Crush is allowed to use for this task"
                 }
             },
             "required": ["action", "instruction"]
@@ -791,15 +797,15 @@ def generate_task_with_gpt4(user_request: str,
     client = OpenAI(api_key=config["openai_api_key"])
 
     system_prompt = """
-You are a project planning assistant working with Claude Code CLI.
-Analyze user requests and create structured tasks for Claude to execute.
+You are a project planning assistant working with Crush Code CLI.
+Analyze user requests and create structured tasks for Crush to execute.
 
 Guidelines:
 - Break complex requests into specific, actionable tasks
 - Be precise about file names and instructions
 - Include relevant context like error messages or requirements
 - Choose appropriate actions: create_file, modify_file, explain_code, run_tests, debug_code, refactor_code
-- Consider what tools Claude might need (Read, Write, Bash, etc.)
+- Consider what tools Crush might need (Read, Write, Bash, etc.)
 - When creating files, use relative paths within the project structure
 - For multi-file projects, organize code logically with proper folder structure
 """
@@ -813,7 +819,7 @@ Guidelines:
                 {"role": "user", "content": user_request}
             ],
             functions=[get_function_schema()],
-            function_call={"name": "invoke_claude_task"}
+            function_call={"name": "invoke_crush_task"}
         )
 
         # Track token usage
@@ -896,7 +902,7 @@ If you need modifications or have questions about this AI-generated code:
 
 ---
 
-*Generated with MeistroCraft - GPT-4 Orchestrator with Claude Code CLI*
+*Generated with MeistroCraft - GPT-4 Orchestrator with Crush Code CLI*
 """
 
         with open(readme_file, 'w') as f:
@@ -916,7 +922,7 @@ def create_project_summary(project_folder: str, task: Dict[str, Any], result: Di
 **Instruction**: {task['instruction']}
 **Status**: {'✅ Success' if result.get('success') else '❌ Failed'}
 
-**Claude's Response**:
+**Crush's Response**:
 {result.get('result', 'No response')[:500]}{'...' if len(result.get('result', '')) > 500 else ''}
 
 ---
@@ -1022,7 +1028,7 @@ if __name__ == '__main__':
 
 def validate_code_output(result: Dict[str, Any], task: Dict[str, Any],
                          project_folder: Optional[str] = None) -> Dict[str, Any]:
-    """Validate Claude's code output and run basic checks."""
+    """Validate Crush's code output and run basic checks."""
     validation_result = {
         "passed": True,
         "issues": [],
@@ -1050,7 +1056,7 @@ def validate_code_output(result: Dict[str, Any], task: Dict[str, Any],
 
 
 def create_feedback_task(original_task: Dict[str, Any],
-                         validation: Dict[str, Any], claude_result: str) -> Dict[str, Any]:
+                         validation: Dict[str, Any], crush_result: str) -> Dict[str, Any]:
     """Create a feedback task to fix issues found in validation."""
     issues_text = "; ".join(validation["issues"])
 
@@ -1058,7 +1064,7 @@ def create_feedback_task(original_task: Dict[str, Any],
         "action": "modify_file" if original_task.get("filename") else "debug_code",
         "filename": original_task.get("filename"),
         "instruction": f"Fix the following issues in the previous implementation: {issues_text}",
-        "context": f"Previous Claude output: {claude_result}\n\nOriginal task: {original_task['instruction']}",
+        "context": f"Previous Crush output: {crush_result}\n\nOriginal task: {original_task['instruction']}",
         "tools": original_task.get("tools", ["Read", "Write"])
     }
 
@@ -1102,7 +1108,7 @@ def interactive_mode(config: Dict[str,
         session_id = session_manager.create_session()
         print(f"🆕 Created new session: {session_id[:8]}...")
 
-    print("🤖 Interactive Mode - Enter requests for GPT-4 to plan and Claude to execute")
+    print("🤖 Interactive Mode - Enter requests for GPT-4 to plan and Crush to execute")
     print("Commands: 'quit' to exit, 'sessions' to list all sessions, 'context' to view session context\n")
 
     while True:
@@ -1173,16 +1179,16 @@ def interactive_mode(config: Dict[str,
         if not task:
             continue
 
-        # Execute with Claude
-        print(f"\n🎯 Executing with Claude: {task['action']} (Session: {session_id[:8]}...)")
-        # For the first task in interactive mode, don't use Claude session
-        # Claude will create a new session and return the session_id
+        # Execute with Crush
+        print(f"\n🎯 Executing with Crush: {task['action']} (Session: {session_id[:8]}...)")
+        # For the first task in interactive mode, don't use Crush session
+        # Crush will create a new session and return the session_id
         session_data = session_manager.load_session(session_id)
         existing_tasks = len(session_data.get('task_history', [])) if session_data else 0
 
         if existing_tasks == 0:
-            # First task - let Claude create a new session
-            result = run_claude_task(task, config, None, None, project_folder, token_tracker)
+            # First task - let Crush create a new session
+            result = run_crush_task(task, config, None, None, project_folder, token_tracker)
             # Save to our session manager and create project summary
             if result.get('success'):
                 session_manager.add_task_to_session(session_id, task, result)
@@ -1199,12 +1205,12 @@ def interactive_mode(config: Dict[str,
                         print(
                             f"📋 Test output: {test_result['test_output'][:200]}{'...' if len(test_result['test_output']) > 200 else ''}")
         else:
-            # Subsequent tasks - try to resume Claude session from previous task
-            claude_session_id = None
+            # Subsequent tasks - try to resume Crush session from previous task
+            crush_session_id = None
             if session_data and session_data.get('task_history'):
                 last_result = session_data['task_history'][-1].get('result', {})
-                claude_session_id = last_result.get('session_id')
-            result = run_claude_task(task, config, claude_session_id, None, project_folder, token_tracker)
+                crush_session_id = last_result.get('session_id')
+            result = run_crush_task(task, config, crush_session_id, None, project_folder, token_tracker)
             # Save to our session manager and update project summary
             if result.get('success'):
                 session_manager.add_task_to_session(session_id, task, result)
@@ -1219,7 +1225,7 @@ def interactive_mode(config: Dict[str,
                             f"📋 Test output: {test_result['test_output'][:200]}{'...' if len(test_result['test_output']) > 200 else ''}")
 
         if result["success"]:
-            print("\n✅ Claude completed the task!")
+            print("\n✅ Crush completed the task!")
             print(f"📝 Response: {result['result'][:200]}{'...' if len(result['result']) > 200 else ''}")
 
             # Store conversation and code context in persistent memory
@@ -1261,12 +1267,12 @@ def interactive_mode(config: Dict[str,
 
                 # Create feedback task
                 feedback_task = create_feedback_task(task, validation, result['result'])
-                # Get Claude session ID for feedback
-                claude_session_id = result.get('session_id')
-                feedback_result = run_claude_task(
+                # Get Crush session ID for feedback
+                crush_session_id = result.get('session_id')
+                feedback_result = run_crush_task(
                     feedback_task,
                     config,
-                    claude_session_id,
+                    crush_session_id,
                     None,
                     project_folder,
                     token_tracker)
@@ -1284,7 +1290,7 @@ def interactive_mode(config: Dict[str,
                 if validation["suggestions"]:
                     print(f"💡 Validation notes: {', '.join(validation['suggestions'])}")
         else:
-            print(f"\n❌ Claude failed: {result['error']}")
+            print(f"\n❌ Crush failed: {result['error']}")
 
         # Session history is now automatically managed by SessionManager
         pass
@@ -1294,7 +1300,7 @@ def interactive_mode(config: Dict[str,
 
 def main():
     """Main orchestrator loop."""
-    print("MeistroCraft - GPT-4 Orchestrator with Claude Code CLI")
+    print("MeistroCraft - GPT-4 Orchestrator with Crush Code CLI")
     print("=" * 60)
 
     # Load configuration
@@ -1367,7 +1373,7 @@ def main():
         print("  🧠 Self-optimization: disabled")
 
     print("Configuration loaded:")
-    print(f"  Claude model: {config.get('claude_model', 'default')}")
+    print(f"  Crush model: {config.get('crush_model', 'default')}")
     print(f"  OpenAI model: {config.get('openai_model', 'gpt-4-0613')}")
     print(f"  Permission mode: {config.get('permission_mode', 'acceptEdits')}")
     print(f"  Allowed tools: {', '.join(config.get('allowed_tools', ['Read', 'Write']))}")
@@ -1458,18 +1464,18 @@ def main():
         if openai_summary.models_used:
             print(f"  Models: {', '.join(openai_summary.models_used)}")
 
-        # Anthropic usage
-        anthropic_summary = token_tracker.get_usage_summary(start_date, None, "anthropic")
-        print(f"\n🤖 Anthropic Usage (Last {days} days):")
-        print(f"  Requests: {anthropic_summary.total_requests}")
-        print(f"  Tokens: {anthropic_summary.total_input_tokens:,} in + {anthropic_summary.total_output_tokens:,} out = {anthropic_summary.total_tokens:,} total")
-        print(f"  Cost: ${anthropic_summary.total_cost_usd:.4f}")
-        if anthropic_summary.models_used:
-            print(f"  Models: {', '.join(anthropic_summary.models_used)}")
+        # Crush usage
+        crush_summary = token_tracker.get_usage_summary(start_date, None, "crush")
+        print(f"\n🤖 Crush Usage (Last {days} days):")
+        print(f"  Requests: {crush_summary.total_requests}")
+        print(f"  Tokens: {crush_summary.total_input_tokens:,} in + {crush_summary.total_output_tokens:,} out = {crush_summary.total_tokens:,} total")
+        print(f"  Cost: ${crush_summary.total_cost_usd:.4f}")
+        if crush_summary.models_used:
+            print(f"  Models: {', '.join(crush_summary.models_used)}")
 
         # Combined totals
-        total_tokens = openai_summary.total_tokens + anthropic_summary.total_tokens
-        total_cost = openai_summary.total_cost_usd + anthropic_summary.total_cost_usd
+        total_tokens = openai_summary.total_tokens + crush_summary.total_tokens
+        total_cost = openai_summary.total_cost_usd + crush_summary.total_cost_usd
         print(f"\n💰 Total Usage (Last {days} days):")
         print(f"  Total Tokens: {total_tokens:,}")
         print(f"  Total Cost: ${total_cost:.4f}")
@@ -1865,8 +1871,8 @@ def main():
 
             task = generate_task_with_gpt4(user_request, config, project_folder, token_tracker, session_id)
             if task and validate_task(task):
-                # Don't pass session_id to Claude for single requests
-                result = run_claude_task(task, config, None, None, project_folder, token_tracker)
+                # Don't pass session_id to Crush for single requests
+                result = run_crush_task(task, config, None, None, project_folder, token_tracker)
                 # But save to our session manager and create project summary
                 if result.get("success"):
                     session_manager.add_task_to_session(session_id, task, result)
@@ -1881,7 +1887,7 @@ def main():
                             print(f"📋 Test output: {test_result['test_output'][:100]}...")
                 if result["success"]:
                     print("\n✅ Task completed successfully!")
-                    print(f"📝 Claude's response:\n{result['result']}")
+                    print(f"📝 Crush's response:\n{result['result']}")
 
                     # Validate output
                     validation = validate_code_output(result, task)
@@ -2403,19 +2409,19 @@ def main():
         print(f"  Instruction: {task['instruction']}")
         print()
 
-        # Execute the task with Claude (no session for example mode)
-        result = run_claude_task(task, config, None, None, None, token_tracker)
+        # Execute the task with Crush (no session for example mode)
+        result = run_crush_task(task, config, None, None, None, token_tracker)
 
         if result["success"]:
             print("✅ Task completed successfully!")
-            print(f"Claude's response:\n{result['result']}")
+            print(f"Crush's response:\n{result['result']}")
 
             # If this was a file creation task, check if the file was created
             if task["action"] == "create_file" and task.get("filename"):
                 if os.path.exists(task["filename"]):
                     print(f"✅ File {task['filename']} was created successfully!")
                 else:
-                    print(f"ℹ️  File {task['filename']} was not created (may be in Claude's response text)")
+                    print(f"ℹ️  File {task['filename']} was not created (may be in Crush's response text)")
         else:
             print("❌ Task failed!")
             print(f"Error: {result['error']}")

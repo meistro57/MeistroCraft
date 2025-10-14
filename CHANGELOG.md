@@ -134,7 +134,7 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 - **Added troubleshooting section** with common issues and solutions
 - **Improved architecture documentation** with new components
 
-#### CLAUDE.md
+#### CRUSH.md
 - **Updated architecture documentation** with new components
 - **Enhanced debugging guide** with comprehensive troubleshooting
 - **Added Docker deployment section** with configuration details
@@ -516,14 +516,14 @@ The Phase 1 implementation provides the foundation for:
 ### 🚀 Major Features Added
 
 #### Split Terminal Interface
-- **Modern UI**: Implemented split terminal interface similar to Claude Code CLI
+- **Modern UI**: Implemented split terminal interface similar to Crush Code CLI
 - **Real-time Display**: Live conversation panel with color-coded messages
 - **Status Panel**: Real-time token usage, session info, and API status monitoring
 - **Interactive Input**: Live input panel with command suggestions and feedback
 - **Keyboard Navigation**: Full keyboard shortcut support (Ctrl+C, Ctrl+H, Ctrl+L)
 
 #### Enterprise Token Tracking System
-- **Real-time Monitoring**: Live token and cost tracking for OpenAI and Anthropic APIs
+- **Real-time Monitoring**: Live token and cost tracking for OpenAI and Crush APIs
 - **Usage Analytics**: Comprehensive statistics with 7/30/90-day reporting
 - **Cost Management**: Automatic cost calculations with current API pricing
 - **Smart Limits**: Configurable daily/monthly token and cost limits with warnings
@@ -602,7 +602,7 @@ The Phase 1 implementation provides the foundation for:
 
 #### Reporting & Export
 - Detailed usage summaries by time period
-- Provider-specific breakdowns (OpenAI vs Anthropic)
+- Provider-specific breakdowns (OpenAI vs Crush)
 - Session-based analysis with top consumers
 - CSV export for external analysis
 
@@ -616,7 +616,7 @@ The Phase 1 implementation provides the foundation for:
 - `Tab`: Focus next panel
 
 #### Visual Enhancements
-- Color-coded conversation (User: cyan, GPT-4: yellow, Claude: green, Errors: red)
+- Color-coded conversation (User: cyan, GPT-4: yellow, Crush: green, Errors: red)
 - Progress indicators for long-running tasks
 - Status badges for API availability
 - Real-time token usage display
@@ -641,7 +641,7 @@ The Phase 1 implementation provides the foundation for:
 
 #### API Integration
 - Enhanced error handling for API failures
-- Improved token usage parsing from Claude CLI
+- Improved token usage parsing from Crush CLI
 - Better retry logic for failed requests
 
 ### 📈 Performance Optimizations
@@ -731,7 +731,7 @@ cp env.template .env
 ## [1.0.0] - 2025-07-11
 
 ### Initial Release
-- GPT-4 orchestrator with Claude Code CLI integration
+- GPT-4 orchestrator with Crush Code CLI integration
 - Basic interactive mode
 - Session management
 - Project organization

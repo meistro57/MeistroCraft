@@ -15,7 +15,7 @@ def test_github_disabled_gracefully():
 
     # Create a test config with GitHub disabled
     test_config = {
-        "anthropic_api_key": "test-key",
+        "crush_api_key": "test-key",
         "github": {
             "enabled": False
         }

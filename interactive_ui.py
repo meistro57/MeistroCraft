@@ -98,16 +98,16 @@ class InteractiveSession:
             start_of_day = datetime.combine(today, datetime.min.time())
 
             openai_summary = self.token_tracker.get_usage_summary(start_of_day, None, "openai")
-            anthropic_summary = self.token_tracker.get_usage_summary(start_of_day, None, "anthropic")
+            crush_summary = self.token_tracker.get_usage_summary(start_of_day, None, "crush")
 
-            total_tokens = openai_summary.total_tokens + anthropic_summary.total_tokens
-            total_cost = openai_summary.total_cost_usd + anthropic_summary.total_cost_usd
+            total_tokens = openai_summary.total_tokens + crush_summary.total_tokens
+            total_cost = openai_summary.total_cost_usd + crush_summary.total_cost_usd
 
             self.ui.update_status(
                 total_tokens_today=total_tokens,
                 total_cost_today=total_cost,
                 openai_tokens_today=openai_summary.total_tokens,
-                anthropic_tokens_today=anthropic_summary.total_tokens
+                crush_tokens_today=crush_summary.total_tokens
             )
         except Exception as e:
             # Don't let token tracking errors break the UI
@@ -249,14 +249,14 @@ class InteractiveSession:
             start_date = datetime.now() - timedelta(days=7)
 
             openai_summary = self.token_tracker.get_usage_summary(start_date, None, "openai")
-            anthropic_summary = self.token_tracker.get_usage_summary(start_date, None, "anthropic")
+            crush_summary = self.token_tracker.get_usage_summary(start_date, None, "crush")
 
-            total_tokens = openai_summary.total_tokens + anthropic_summary.total_tokens
-            total_cost = openai_summary.total_cost_usd + anthropic_summary.total_cost_usd
+            total_tokens = openai_summary.total_tokens + crush_summary.total_tokens
+            total_cost = openai_summary.total_cost_usd + crush_summary.total_cost_usd
 
             usage_msg = """Token Usage (Last 7 days):
 📊 OpenAI: {openai_summary.total_tokens:,} tokens (${openai_summary.total_cost_usd:.4f})
-🤖 Anthropic: {anthropic_summary.total_tokens:,} tokens (${anthropic_summary.total_cost_usd:.4f})
+🤖 Crush: {crush_summary.total_tokens:,} tokens (${crush_summary.total_cost_usd:.4f})
 💰 Total: {total_tokens:,} tokens (${total_cost:.4f})"""
 
             self.ui.add_message("system", usage_msg)
@@ -831,7 +831,7 @@ Levels:
     def _process_request_background(self, user_input: str) -> None:
         """Process user request in background thread."""
         try:
-            from main import generate_task_with_gpt4, run_claude_task, setup_project_folder
+            from main import generate_task_with_gpt4, run_crush_task, setup_project_folder
             from main import create_project_summary, create_project_readme, validate_task
 
             # Set up project folder for first task if not already set
@@ -867,23 +867,23 @@ Levels:
                 return
 
             # Update progress
-            self.ui.show_progress(f"Executing with Claude: {task['action']}")
+            self.ui.show_progress(f"Executing with Crush: {task['action']}")
             self.ui.add_message("system", f"🎯 GPT-4 Task: {task['action']} - {task['instruction'][:60]}...")
 
-            # Execute with Claude
+            # Execute with Crush
             session_data = self.session_manager.load_session(self.session_id)
             existing_tasks = len(session_data.get('task_history', [])) if session_data else 0
 
             if existing_tasks == 0:
-                # First task - let Claude create a new session
-                result = run_claude_task(task, self.config, None, None, self.project_folder, self.token_tracker)
+                # First task - let Crush create a new session
+                result = run_crush_task(task, self.config, None, None, self.project_folder, self.token_tracker)
             else:
-                # Subsequent tasks - try to resume Claude session
-                claude_session_id = None
+                # Subsequent tasks - try to resume Crush session
+                crush_session_id = None
                 if session_data and session_data.get('task_history'):
                     last_result = session_data['task_history'][-1].get('result', {})
-                    claude_session_id = last_result.get('session_id')
-                result = run_claude_task(task, self.config, claude_session_id, None,
+                    crush_session_id = last_result.get('session_id')
+                result = run_crush_task(task, self.config, crush_session_id, None,
                                          self.project_folder, self.token_tracker)
 
             # Hide progress
@@ -894,7 +894,7 @@ Levels:
                 self.session_manager.add_task_to_session(self.session_id, task, result)
 
                 # Update UI
-                self.ui.add_message("claude", result['result'][:500] + ("..." if len(result['result']) > 500 else ""))
+                self.ui.add_message("crush", result['result'][:500] + ("..." if len(result['result']) > 500 else ""))
                 self.ui.update_status(task_count=existing_tasks + 1)
 
                 # Create project summary and README for first task
@@ -909,7 +909,7 @@ Levels:
                 self._update_memory_display()
 
             else:
-                self.ui.add_message("error", f"Claude failed: {result.get('error', 'Unknown error')}")
+                self.ui.add_message("error", f"Crush failed: {result.get('error', 'Unknown error')}")
 
         except Exception as e:
             self.ui.hide_progress()

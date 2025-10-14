@@ -17,4 +17,4 @@ This feature has been automatically implemented by the GitFixxer automation syst
 - Created this documentation for tracking purposes
 
 ---
-*This feature was implemented automatically by Claude Code*
+*This feature was implemented automatically by Crush Code*

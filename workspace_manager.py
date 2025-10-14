@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Workspace Manager for MeistroCraft
-Provides git worktree-based workspace isolation similar to Claude Squad.
+Provides git worktree-based workspace isolation similar to Crush Squad.
 Each task gets its own isolated branch and workspace directory.
 """
 

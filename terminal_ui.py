@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
 Terminal UI for MeistroCraft
-Provides a split terminal interface similar to Claude Code CLI with separate panes for:
+Provides a split terminal interface similar to Crush Code CLI with separate panes for:
 - User input
 - AI responses
 - System status and token tracking
@@ -45,7 +45,7 @@ class StatusInfo:
     total_tokens_today: int = 0
     total_cost_today: float = 0.0
     openai_tokens_today: int = 0
-    anthropic_tokens_today: int = 0
+    crush_tokens_today: int = 0
     last_request_tokens: int = 0
     last_request_cost: float = 0.0
     api_status: Dict[str, str] = None
@@ -58,7 +58,7 @@ class StatusInfo:
 
     def __post_init__(self):
         if self.api_status is None:
-            self.api_status = {"openai": "ready", "anthropic": "ready"}
+            self.api_status = {"openai": "ready", "crush": "ready"}
 
 
 class MeistroCraftUI:
@@ -109,7 +109,7 @@ class MeistroCraftUI:
     def create_header(self) -> Panel:
         """Create the header panel with app title and quick info."""
         title_text = Text("🎯 MeistroCraft", style="bold magenta")
-        subtitle_text = Text("GPT-4 Orchestrator with Claude Code CLI", style="dim")
+        subtitle_text = Text("GPT-4 Orchestrator with Crush Code CLI", style="dim")
 
         if self.status.session_id:
             session_text = Text(f" | Session: {self.status.session_id[:8]}...", style="cyan")
@@ -153,8 +153,8 @@ class MeistroCraftUI:
             elif speaker == "system":
                 conversation_lines.append(Text(f"[{timestamp}] 🎯 GPT-4:", style="yellow bold"))
                 conversation_lines.append(Text(f"  {message}", style="yellow"))
-            elif speaker == "claude":
-                conversation_lines.append(Text(f"[{timestamp}] 🤖 Claude:", style="green bold"))
+            elif speaker == "crush":
+                conversation_lines.append(Text(f"[{timestamp}] 🤖 Crush:", style="green bold"))
                 conversation_lines.append(Text(f"  {message}", style="green"))
             elif speaker == "error":
                 conversation_lines.append(Text(f"[{timestamp}] ❌ Error:", style="red bold"))
@@ -198,7 +198,7 @@ class MeistroCraftUI:
         status_content.append(Text("🔢 Token Usage (Today)", style="bold magenta"))
         status_content.append(Text(f"Total: {self.status.total_tokens_today:,}", style="white"))
         status_content.append(Text(f"OpenAI: {self.status.openai_tokens_today:,}", style="blue"))
-        status_content.append(Text(f"Anthropic: {self.status.anthropic_tokens_today:,}", style="green"))
+        status_content.append(Text(f"Crush: {self.status.crush_tokens_today:,}", style="green"))
         status_content.append(Text(f"Cost: ${self.status.total_cost_today:.4f}", style="yellow"))
         status_content.append(Text(""))
 
@@ -244,11 +244,11 @@ class MeistroCraftUI:
         # API Status
         status_content.append(Text("🌐 API Status", style="bold blue"))
         openai_status = "🟢" if self.status.api_status["openai"] == "ready" else "🔴"
-        anthropic_status = "🟢" if self.status.api_status["anthropic"] == "ready" else "🔴"
+        crush_status = "🟢" if self.status.api_status["crush"] == "ready" else "🔴"
         status_content.append(Text(f"OpenAI: {openai_status} {self.status.api_status['openai']}", style="white"))
         status_content.append(
             Text(
-                f"Anthropic: {anthropic_status} {self.status.api_status['anthropic']}",
+                f"Crush: {crush_status} {self.status.api_status['crush']}",
                 style="white"))
 
         # Current time
@@ -347,8 +347,8 @@ class MeistroCraftUI:
         """Update token usage statistics."""
         if provider == "openai":
             self.status.openai_tokens_today += tokens
-        elif provider == "anthropic":
-            self.status.anthropic_tokens_today += tokens
+        elif provider == "crush":
+            self.status.crush_tokens_today += tokens
 
         self.status.total_tokens_today += tokens
         self.status.total_cost_today += cost

@@ -11,7 +11,7 @@
   
   **🎯 Revolutionary Multi-Agent AI System with Self-Optimization**
   
-  *Where GPT-4 Strategic Planning meets Claude Code Execution*
+  *Where GPT-4 Strategic Planning meets Crush Code Execution*
 </div>
 
 ---
@@ -38,7 +38,7 @@
 
 ## 🎯 Overview
 
-MeistroCraft represents the pinnacle of AI-powered development orchestration, combining the strategic brilliance of **GPT-4** with the execution mastery of **Claude Code CLI** to create an autonomous coding powerhouse.
+MeistroCraft represents the pinnacle of AI-powered development orchestration, combining the strategic brilliance of **GPT-4** with the execution mastery of **Crush Code CLI** to create an autonomous coding powerhouse.
 
 ### 🏗️ System Architecture
 
@@ -47,7 +47,7 @@ graph TB
     A[👤 User Input] --> B[🧠 GPT-4 Orchestrator]
     B --> C[📋 Task Generation]
     C --> D[🐍 Python Orchestrator]
-    D --> E[⚡ Claude Code CLI]
+    D --> E[⚡ Crush Code CLI]
     E --> F[💻 Code Generation]
     F --> G[✅ Validation Engine]
     G --> H{🔍 Quality Check}
@@ -93,7 +93,7 @@ graph TB
 </td>
 <td width="50%">
 
-**⚡ Claude Code Executor**
+**⚡ Crush Code Executor**
 - Direct file system access
 - Advanced code generation
 - Multi-language support
@@ -164,13 +164,13 @@ class SelfOptimizer:
 │  📝 Input Panel     │  💬 Conversation    │  📊 Status Panel    │
 │                     │                     │                     │
 │  > Your commands    │  🧠 GPT-4: Planning │  🎯 Tokens: 1,234   │
-│    and requests     │  ⚡ Claude: Coding  │  💰 Cost: $2.45     │
+│    and requests     │  ⚡ Crush: Coding  │  💰 Cost: $2.45     │
 │                     │  ✅ System: Done    │  📈 Performance: ⚡  │
 └─────────────────────┴─────────────────────┴─────────────────────┘
 ```
 
 **Key Features:**
-- 🎨 **Color-coded conversations** (User: cyan, GPT-4: yellow, Claude: green)
+- 🎨 **Color-coded conversations** (User: cyan, GPT-4: yellow, Crush: green)
 - ⌨️ **Keyboard shortcuts** (Ctrl+C, Ctrl+H, Ctrl+L)
 - 📊 **Real-time metrics** (tokens, costs, performance)
 - 🔄 **Live updates** (progress, status, notifications)
@@ -199,7 +199,7 @@ cp env.template .env
 ```json
 {
   "openai_api_key": "sk-your-openai-key",
-  "anthropic_api_key": "sk-ant-your-anthropic-key",
+  "crush_api_key": "sk-crush-your-api-key",
   "github_api_key": "ghp_your-github-token",
   "self_optimization_enabled": true,
   "github": {
@@ -524,7 +524,7 @@ MeistroCraft features a **modern, responsive terminal interface** inspired by pr
 │   binary calc   │ create a binary calculator.  │ 💰 Tokens Used: 2,847          │
 │                 │ Let me break this down...    │ 💵 Cost: $4.23                 │
 │ ⌨️  Type here   │                              │ ⚡ Performance: Optimized      │
-│                 │ ⚡ Claude: Creating the      │ 📈 Cache Hit: 92%              │
+│                 │ ⚡ Crush: Creating the      │ 📈 Cache Hit: 92%              │
 │                 │ calculator with modern UI... │ 🔄 Requests: 47               │
 │                 │                              │ 🛡️  Rate Limits: 4,953 left   │
 │                 │ ✅ System: Binary calc       │ 📊 Health Score: 94.2%        │
@@ -549,7 +549,7 @@ MeistroCraft features a **modern, responsive terminal interface** inspired by pr
 
 - 👤 **User messages**: `cyan` - Easy to spot your inputs
 - 🧠 **GPT-4 responses**: `yellow` - Strategic planning and analysis
-- ⚡ **Claude responses**: `green` - Code execution and results
+- ⚡ **Crush responses**: `green` - Code execution and results
 - ❌ **Error messages**: `red` - Issues and warnings
 - ℹ️ **System messages**: `blue` - Status and notifications
 
@@ -606,7 +606,7 @@ MeistroCraft includes **comprehensive usage monitoring** with real-time cost tra
 
 **📈 Historical Analysis**
 - 7/30/90-day reporting
-- Provider breakdown (OpenAI/Anthropic)
+- Provider breakdown (OpenAI/Crush)
 - Session-based analysis
 - Top consumers identification
 - Trend analysis and forecasting
@@ -642,7 +642,7 @@ python main.py --optimize history > optimization_history.txt
 ```csv
 Date,Provider,Model,Tokens,Cost,Session
 2025-07-13,OpenAI,gpt-4,1234,$1.85,session_abc123
-2025-07-13,Anthropic,claude-3,2456,$3.67,session_def456
+2025-07-13,Crush,crush-3,2456,$3.67,session_def456
 ```
 
 ---
@@ -662,7 +662,7 @@ MeistroCraft provides **extensive configuration capabilities** for enterprise de
 {
   "api_keys": {
     "openai_api_key": "sk-your-openai-key",
-    "anthropic_api_key": "sk-ant-your-anthropic-key",
+    "crush_api_key": "sk-crush-your-api-key",
     "github_api_key": "ghp_your-github-token"
   },
   
@@ -724,7 +724,7 @@ MeistroCraft provides **extensive configuration capabilities** for enterprise de
 ```bash
 # API Keys (highest priority)
 export OPENAI_API_KEY="sk-your-openai-key"
-export ANTHROPIC_API_KEY="sk-ant-your-anthropic-key"
+export CRUSH_API_KEY="sk-crush-your-api-key"
 export GITHUB_TOKEN="ghp_your-github-token"
 
 # Feature toggles
@@ -954,7 +954,7 @@ python main.py --interactive --debug
 ```bash
 # Secure API key management
 export OPENAI_API_KEY=$(vault kv get -field=key secret/openai)
-export ANTHROPIC_API_KEY=$(vault kv get -field=key secret/anthropic)
+export CRUSH_API_KEY=$(vault kv get -field=key secret/crush)
 
 # Network security
 iptables -A INPUT -p tcp --dport 8000 -s 10.0.0.0/8 -j ACCEPT
@@ -1126,7 +1126,7 @@ Contributors get recognition through:
 └── 📦 Downloads: 10,000+
 
 🏗️ Architecture:
-├── 🧠 AI Orchestration: GPT-4 + Claude
+├── 🧠 AI Orchestration: GPT-4 + Crush
 ├── ⚡ Performance: Async + Caching + Batching
 ├── 🐙 GitHub: Full API Integration
 ├── 🎨 UI: Modern Split Terminal
