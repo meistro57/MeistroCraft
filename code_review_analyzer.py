@@ -1,21 +1,23 @@
-"""
-AI-Powered Code Review Analyzer for MeistroCraft - Phase 2 Polish
-Provides intelligent code analysis, security scanning, and optimization suggestions.
+# code_review_analyzer.py
+"""AI-Powered Code Review Analyzer for MeistroCraft.
+
+Provides intelligent code analysis, security scanning, and optimisation suggestions.
 """
 
 import json
 import re
 import os
 import logging
-from typing import Dict, List, Any, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 from datetime import datetime
 
-try:
-    from openai import OpenAI
-except ImportError:
-    OpenAI = None
-
 from github_client import GitHubClient, GitHubClientError
+from llm_provider import (
+    create_chat_client,
+    get_provider_details,
+    get_provider_model,
+    is_provider_configured,
+)
 
 
 class CodeReviewError(Exception):
@@ -41,13 +43,16 @@ class CodeReviewAnalyzer:
         self.config = config or {}
         self.logger = logging.getLogger(__name__)
 
-        # Initialize OpenAI client if available
-        self.openai_client = None
-        if OpenAI and self.config.get('openai_api_key'):
+        self.provider, self.provider_display = get_provider_details(self.config)
+        self.model_name = get_provider_model(self.config, self.provider, 'gpt-4-0613')
+
+        # Initialize LLM client if available
+        self.llm_client = None
+        if is_provider_configured(self.config, self.provider):
             try:
-                self.openai_client = OpenAI(api_key=self.config['openai_api_key'])
+                self.llm_client = create_chat_client(self.config, self.provider)
             except Exception as e:
-                self.logger.warning(f"Failed to initialize OpenAI client: {e}")
+                self.logger.warning(f"Failed to initialise {self.provider_display} client: {e}")
 
         # Review categories and their priorities
         self.review_categories = {
@@ -93,9 +98,9 @@ class CodeReviewAnalyzer:
             # Generate overall review summary
             review_summary = self._generate_review_summary(file_analyses, pr_data)
 
-            # AI-powered insights (if OpenAI available)
+            # AI-powered insights (if LLM available)
             ai_insights = None
-            if self.openai_client:
+            if self.llm_client:
                 ai_insights = self._generate_ai_insights(file_analyses, pr_data)
 
             return {
@@ -151,7 +156,7 @@ class CodeReviewAnalyzer:
 
             # AI-powered suggestions (if available)
             ai_suggestions = None
-            if self.openai_client:
+            if self.llm_client:
                 ai_suggestions = self._get_ai_suggestions(code, language, filename)
 
             return {
@@ -662,7 +667,7 @@ class CodeReviewAnalyzer:
 
     def _get_ai_suggestions(self, code: str, language: str, filename: str) -> Optional[Dict[str, Any]]:
         """Get AI-powered code improvement suggestions."""
-        if not self.openai_client:
+        if not self.llm_client:
             return None
 
         try:
@@ -699,8 +704,8 @@ class CodeReviewAnalyzer:
             }
             """
 
-            response = self.openai_client.chat.completions.create(
-                model=self.config.get('openai_model', 'gpt-4-0613'),
+            response = self.llm_client.chat.completions.create(
+                model=self.model_name,
                 messages=[
                     {"role": "system", "content": "You are an expert code reviewer. Provide concise, actionable suggestions."},
                     {"role": "user", "content": prompt}
@@ -889,7 +894,7 @@ class CodeReviewAnalyzer:
 
     def _generate_ai_insights(self, file_analyses: List[Dict[str, Any]], pr_data: Dict[str, Any]) -> Optional[str]:
         """Generate AI-powered insights about the PR."""
-        if not self.openai_client or not file_analyses:
+        if not self.llm_client or not file_analyses:
             return None
 
         try:
@@ -919,8 +924,8 @@ class CodeReviewAnalyzer:
             Keep it concise (2-3 sentences max).
             """
 
-            response = self.openai_client.chat.completions.create(
-                model=self.config.get('openai_model', 'gpt-4-0613'),
+            response = self.llm_client.chat.completions.create(
+                model=self.model_name,
                 messages=[
                     {"role": "system", "content": "You are a senior code reviewer providing strategic insights."},
                     {"role": "user", "content": prompt}

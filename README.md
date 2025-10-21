@@ -52,10 +52,11 @@ python3 start_ide.py
 
 1. **Open Settings**: Click ⚙️ in the Web IDE
 2. **Add API Keys**:
-   - OpenAI API Key (required)
+   - OpenAI or OpenRouter API key (required for LLM features)
    - Anthropic API Key (required)
    - GitHub Token (optional)
-3. **Save Settings**: Click "Save Settings"
+3. **Choose Provider**: Set the LLM Provider dropdown (persists as `llm_provider` in `config/config.json`).
+4. **Save Settings**: Click "Save Settings"
 
 ## 📁 Project Manager
 

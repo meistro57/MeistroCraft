@@ -28,6 +28,14 @@ from interactive_ui import InteractiveSession
 from task_queue import get_task_queue, TaskPriority, TaskStatus
 from workspace_manager import WorkspaceManager
 from token_tracker import TokenTracker
+from llm_provider import (
+    create_chat_client,
+    get_provider_details,
+    get_provider_display_name,
+    get_provider_model,
+    is_provider_configured,
+    normalise_provider,
+)
 from main import SessionManager, load_config, save_config, setup_environment, generate_task_with_gpt4, run_crush_task
 from crush_squad_bridge import squad_bridge, SquadAgentType, SquadSession
 
@@ -291,7 +299,9 @@ async def get_api_config():
             "openai": {
                 "configured": False,
                 "model": None,
-                "status": "not_configured"
+                "status": "not_configured",
+                "provider": "openai",
+                "display_name": get_provider_display_name("openai"),
             },
             "crush": {
                 "configured": False,
@@ -306,11 +316,13 @@ async def get_api_config():
         }
 
         if session_manager.config and isinstance(session_manager.config, dict):
-            # Check OpenAI configuration
-            openai_key = session_manager.config.get("openai_api_key")
-            if openai_key and not openai_key.startswith("sk-your-") and openai_key != "<YOUR_OPENAI_API_KEY>":
+            provider_id, provider_display = get_provider_details(session_manager.config)
+            config_status["openai"]["provider"] = provider_id
+            config_status["openai"]["display_name"] = provider_display
+
+            if is_provider_configured(session_manager.config, provider_id):
                 config_status["openai"]["configured"] = True
-                config_status["openai"]["model"] = session_manager.config.get("openai_model", "gpt-4")
+                config_status["openai"]["model"] = get_provider_model(session_manager.config, provider_id)
                 config_status["openai"]["status"] = "configured"
 
             # Check Crush configuration
@@ -344,11 +356,18 @@ async def save_api_config(request: Request):
         except BaseException:
             # If config doesn't exist, create a new one
             current_config = {
+                "llm_provider": "openai",
                 "crush_api_key": "<YOUR_CRUSH_API_KEY>",
                 "openai_api_key": "<YOUR_OPENAI_API_KEY>",
+                "openrouter_api_key": "<YOUR_OPENROUTER_API_KEY>",
                 "github_api_key": "<YOUR_GITHUB_API_KEY>",
                 "crush_model": "crush-pro-1",
                 "openai_model": "gpt-4",
+                "openrouter_model": "openrouter/anthropic/claude-3.5-sonnet",
+                "openrouter": {
+                    "referer": "",
+                    "title": "MeistroCraft"
+                },
                 "max_tokens": 4000,
                 "max_context_length": 16000,
                 "usage_limits": {
@@ -358,16 +377,24 @@ async def save_api_config(request: Request):
             }
 
         # Update config with new values
+        if body.get("llm_provider"):
+            current_config["llm_provider"] = normalise_provider(body["llm_provider"])
         if body.get("openai_api_key"):
             current_config["openai_api_key"] = body["openai_api_key"]
+        if body.get("openrouter_api_key"):
+            current_config["openrouter_api_key"] = body["openrouter_api_key"]
         if body.get("crush_api_key"):
             current_config["crush_api_key"] = body["crush_api_key"]
         if body.get("github_api_key"):
             current_config["github_api_key"] = body["github_api_key"]
         if body.get("openai_model"):
             current_config["openai_model"] = body["openai_model"]
+        if body.get("openrouter_model"):
+            current_config["openrouter_model"] = body["openrouter_model"]
         if body.get("crush_model"):
             current_config["crush_model"] = body["crush_model"]
+        if isinstance(body.get("openrouter"), dict):
+            current_config.setdefault("openrouter", {}).update(body["openrouter"])
 
         # Save config to file
         save_config(current_config)
@@ -389,7 +416,7 @@ async def test_api_key(request: Request):
     """Test an API key for validity."""
     try:
         body = await request.json()
-        provider = body.get("provider")  # "openai", "crush", or "github"
+        provider = body.get("provider")  # "openai", "openrouter", "crush", or "github"
         api_key = body.get("api_key")
 
         if not provider or not api_key:
@@ -441,17 +468,29 @@ async def test_api_key(request: Request):
                     "status": "invalid",
                     "message": f"GitHub API test failed: {str(e)}"
                 }
-        elif provider == "openai":
-            # Test OpenAI API key
+        elif provider in {"openai", "openrouter"}:
+            # Test OpenAI-compatible API key
             try:
-                import openai
-                client = openai.OpenAI(api_key=api_key)
-                # Simple test call
-                response = client.models.list()
+                provider_id = normalise_provider(provider)
+                provider_display = get_provider_display_name(provider_id)
+                temp_config = {
+                    "llm_provider": provider_id,
+                    "openai_api_key": api_key if provider_id == "openai" else "<YOUR_OPENAI_API_KEY>",
+                    "openrouter_api_key": api_key if provider_id == "openrouter" else "<YOUR_OPENROUTER_API_KEY>",
+                    "openai_model": body.get("model") or "gpt-4-0613",
+                    "openrouter_model": body.get("model") or "openrouter/anthropic/claude-3.5-sonnet",
+                    "openrouter": body.get("openrouter") or {},
+                }
+
+                client = create_chat_client(temp_config, provider_id)
+                if not client:
+                    raise ValueError("Client initialisation failed")
+
+                client.models.list()
                 return {
-                    "provider": provider,
+                    "provider": provider_id,
                     "status": "valid",
-                    "message": "API key is valid"
+                    "message": f"{provider_display} API key is valid"
                 }
             except Exception as e:
                 return {

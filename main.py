@@ -16,12 +16,12 @@ from typing import Dict, List, Optional, Any
 try:
     from openai import OpenAI
 except ImportError:
-    print("OpenAI library not found. Install with: pip install openai")
+    print("OpenAI-compatible library not found. Install with: pip install openai")
     OpenAI = None
 
 from naming_agent import generate_creative_project_name
 
-from token_tracker import TokenTracker, TokenUsage, UsageLimits
+from token_tracker import ApiProvider, TokenTracker, TokenUsage, UsageLimits
 from persistent_memory import PersistentMemory, MemoryType, MemoryPriority
 from workspace_manager import WorkspaceManager
 from github_client import create_github_client, GitHubClient, GitHubClientError
@@ -30,6 +30,13 @@ from cicd_integration import create_cicd_integration, GitHubActionsManager, CICD
 from build_monitor import BuildStatusMonitor
 from deployment_automation import create_deployment_automation, DeploymentAutomation
 from self_optimizer import create_self_optimizer, SelfOptimizer
+from llm_provider import (
+    create_chat_client,
+    get_provider_details,
+    get_provider_model,
+    is_provider_configured,
+    normalise_provider,
+)
 
 
 def load_config(config_path: str = "config/config.json") -> Dict[str, Any]:
@@ -789,12 +796,22 @@ def generate_task_with_gpt4(user_request: str,
                             token_tracker: Optional[TokenTracker] = None,
                             session_id: Optional[str] = None) -> Optional[Dict[str,
                                                                                Any]]:
-    """Use GPT-4 to generate a task from user request."""
-    if not OpenAI or not config.get("openai_api_key") or config["openai_api_key"] == "<YOUR_OPENAI_API_KEY>":
-        print("❌ OpenAI integration not available (missing API key or library)")
+    """Use the configured LLM to generate a task from user request."""
+    provider, provider_display = get_provider_details(config)
+
+    if not is_provider_configured(config, provider):
+        print(f"❌ {provider_display} integration not available (missing API key or library)")
         return None
 
-    client = OpenAI(api_key=config["openai_api_key"])
+    try:
+        client = create_chat_client(config, provider)
+    except Exception as exc:
+        print(f"❌ Failed to initialise {provider_display} client: {exc}")
+        return None
+
+    if not client:
+        print(f"❌ {provider_display} integration not available (client initialisation failed)")
+        return None
 
     system_prompt = """
 You are a project planning assistant working with Crush Code CLI.
@@ -811,7 +828,7 @@ Guidelines:
 """
 
     try:
-        model = config.get("openai_model", "gpt-4-0613")
+        model = get_provider_model(config, provider, "gpt-4-0613")
         response = client.chat.completions.create(
             model=model,
             messages=[
@@ -824,10 +841,11 @@ Guidelines:
 
         # Track token usage
         if token_tracker and hasattr(response, 'usage'):
-            usage = TokenUsage.from_openai_response(response, model, session_id, "task_generation")
+            provider_enum = ApiProvider.OPENAI if normalise_provider(provider) == "openai" else ApiProvider.OPENROUTER
+            usage = TokenUsage.from_chat_completion(provider_enum, response, model, session_id, "task_generation")
             token_tracker.track_usage(usage)
             print(
-                f"🔢 OpenAI Usage: {usage.input_tokens} in + {usage.output_tokens} out = {usage.total_tokens} tokens (${usage.cost_usd:.4f})")
+                f"🔢 {provider_display} Usage: {usage.input_tokens} in + {usage.output_tokens} out = {usage.total_tokens} tokens (${usage.cost_usd:.4f})")
 
         if response.choices[0].message.function_call:
             task_args = json.loads(response.choices[0].message.function_call.arguments)
@@ -846,7 +864,7 @@ Guidelines:
             return None
 
     except Exception as e:
-        print(f"❌ Error calling GPT-4: {e}")
+        print(f"❌ Error calling {provider_display}: {e}")
         return None
 
 
@@ -1372,18 +1390,20 @@ def main():
     else:
         print("  🧠 Self-optimization: disabled")
 
+    provider_id, provider_display = get_provider_details(config)
     print("Configuration loaded:")
     print(f"  Crush model: {config.get('crush_model', 'default')}")
-    print(f"  OpenAI model: {config.get('openai_model', 'gpt-4-0613')}")
+    print(f"  LLM provider: {provider_display}")
+    print(f"  LLM model: {get_provider_model(config, provider_id, config.get('openai_model', 'gpt-4-0613'))}")
     print(f"  Permission mode: {config.get('permission_mode', 'acceptEdits')}")
     print(f"  Allowed tools: {', '.join(config.get('allowed_tools', ['Read', 'Write']))}")
     print()
 
-    # Check if we can use GPT-4 integration
-    has_openai = OpenAI and config.get("openai_api_key") and config["openai_api_key"] != "<YOUR_OPENAI_API_KEY>"
+    # Check if we can use LLM integration
+    has_llm = OpenAI and is_provider_configured(config, provider_id)
 
     if len(sys.argv) > 1 and sys.argv[1] == "--interactive":
-        if has_openai:
+        if has_llm:
             # Check for session ID parameter
             session_id = None
             if len(sys.argv) > 2 and sys.argv[2].startswith("--session="):
@@ -1405,7 +1425,7 @@ def main():
                 session_manager = SessionManager(workspace_manager=workspace_manager)
                 interactive_mode(config, session_id, token_tracker, persistent_memory, session_manager)
         else:
-            print("❌ Interactive mode requires OpenAI API key")
+            print(f"❌ Interactive mode requires a valid {provider_display} API key")
             sys.exit(1)
     elif len(sys.argv) > 1 and sys.argv[1] == "--sessions":
         # List all sessions
@@ -1423,7 +1443,7 @@ def main():
         # Continue a specific session
         if len(sys.argv) > 2:
             session_id = sys.argv[2]
-            if has_openai:
+            if has_llm:
                 # Try to use the new split terminal UI
                 try:
                     from interactive_ui import run_interactive_ui
@@ -1440,7 +1460,7 @@ def main():
                     session_manager = SessionManager(workspace_manager=workspace_manager)
                     interactive_mode(config, session_id, token_tracker, persistent_memory, session_manager)
             else:
-                print("❌ Interactive mode requires OpenAI API key")
+                print(f"❌ Interactive mode requires a valid {provider_display} API key")
                 sys.exit(1)
         else:
             print("❌ --continue requires a session ID")
@@ -1455,14 +1475,14 @@ def main():
         from datetime import timedelta
         start_date = datetime.now() - timedelta(days=days)
 
-        # OpenAI usage
-        openai_summary = token_tracker.get_usage_summary(start_date, None, "openai")
-        print(f"\n📊 OpenAI Usage (Last {days} days):")
-        print(f"  Requests: {openai_summary.total_requests}")
-        print(f"  Tokens: {openai_summary.total_input_tokens:,} in + {openai_summary.total_output_tokens:,} out = {openai_summary.total_tokens:,} total")
-        print(f"  Cost: ${openai_summary.total_cost_usd:.4f}")
-        if openai_summary.models_used:
-            print(f"  Models: {', '.join(openai_summary.models_used)}")
+        # Primary LLM usage
+        llm_summary = token_tracker.get_usage_summary(start_date, None, provider_id)
+        print(f"\n📊 {provider_display} Usage (Last {days} days):")
+        print(f"  Requests: {llm_summary.total_requests}")
+        print(f"  Tokens: {llm_summary.total_input_tokens:,} in + {llm_summary.total_output_tokens:,} out = {llm_summary.total_tokens:,} total")
+        print(f"  Cost: ${llm_summary.total_cost_usd:.4f}")
+        if llm_summary.models_used:
+            print(f"  Models: {', '.join(llm_summary.models_used)}")
 
         # Crush usage
         crush_summary = token_tracker.get_usage_summary(start_date, None, "crush")
@@ -1858,7 +1878,7 @@ def main():
             print("❌ --delete-session requires a session ID")
 
     elif len(sys.argv) > 1 and sys.argv[1] == "--request":
-        if has_openai and len(sys.argv) > 2:
+        if has_llm and len(sys.argv) > 2:
             user_request = " ".join(sys.argv[2:])
             print(f"🎯 Processing request: {user_request}")
 
@@ -1896,7 +1916,7 @@ def main():
                 else:
                     print(f"\n❌ Task failed: {result['error']}")
         else:
-            print("❌ --request mode requires OpenAI API key and a request string")
+            print(f"❌ --request mode requires a valid {provider_display} API key and a request string")
             sys.exit(1)
 
     # GitHub integration commands

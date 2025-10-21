@@ -29,7 +29,9 @@ class TestConfiguration:
         try:
             config = load_config()
             assert isinstance(config, dict)
+            assert 'llm_provider' in config
             assert 'openai_api_key' in config
+            assert 'openrouter_api_key' in config
             assert 'crush_api_key' in config
         except Exception as e:
             pytest.skip(f"Config loading failed: {e}")
@@ -42,7 +44,9 @@ class TestConfiguration:
                 temp_config_path = f.name
 
             test_config = {
+                'llm_provider': 'openai',
                 'openai_api_key': 'test-key',
+                'openrouter_api_key': 'test-openrouter',
                 'crush_api_key': 'test-key',
                 'max_turns': 5
             }

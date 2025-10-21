@@ -28,7 +28,9 @@ class TestGitHubActionsManager(unittest.TestCase):
         self.test_config = {
             'max_workflow_wait': 1800,
             'workflow_check_interval': 30,
-            'openai_api_key': 'test_key'
+            'llm_provider': 'openai',
+            'openai_api_key': 'test_key',
+            'openrouter_api_key': 'test_openrouter_key'
         }
 
     def test_github_actions_manager_initialization(self):
@@ -592,7 +594,9 @@ class TestPhase3Integration(unittest.TestCase):
 
         self.test_config = {
             'github_token': 'test_token',
+            'llm_provider': 'openai',
             'openai_api_key': 'test_openai_key',
+            'openrouter_api_key': 'test_openrouter_key',
             'max_workflow_wait': 1800
         }
 

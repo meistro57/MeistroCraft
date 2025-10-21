@@ -1,12 +1,15 @@
-"""
-Naming Agent for MeistroCraft - Generates creative, concise project names
-"""
-try:
-    import openai
-except ImportError:
-    openai = None
+# naming_agent.py
+"""Naming Agent for MeistroCraft - Generates creative, concise project names."""
+
 import re
-from typing import Dict, Any
+from typing import Any, Dict
+
+from llm_provider import (
+    create_chat_client,
+    get_provider_details,
+    get_provider_model,
+    is_provider_configured,
+)
 
 
 class NamingAgent:
@@ -14,10 +17,16 @@ class NamingAgent:
 
     def __init__(self, config: Dict[str, Any]):
         self.config = config
-        if openai and config.get("openai_api_key"):
-            self.client = openai.OpenAI(api_key=config.get("openai_api_key"))
-        else:
-            self.client = None
+        self.provider, self.provider_display = get_provider_details(config)
+        self.model_name = get_provider_model(config, self.provider, "gpt-4-0613")
+        self.client = None
+
+        if is_provider_configured(config, self.provider):
+            try:
+                self.client = create_chat_client(config, self.provider)
+            except Exception as exc:
+                print(f"⚠️  Naming agent could not initialise {self.provider_display}: {exc}")
+                self.client = None
 
     def generate_project_name(self, description: str) -> str:
         """
@@ -64,7 +73,7 @@ Be creative and think like a startup founder naming their product!"""
         if self.client:
             try:
                 response = self.client.chat.completions.create(
-                    model=self.config.get("openai_model", "gpt-4-0613"),
+                    model=self.model_name,
                     messages=[
                         {"role": "system", "content": system_prompt},
                         {"role": "user", "content": user_prompt}
@@ -86,7 +95,7 @@ Be creative and think like a startup founder naming their product!"""
                 return cleaned_name
 
             except Exception as e:
-                print(f"⚠️  Naming agent failed: {e}")
+                print(f"⚠️  Naming agent failed via {self.provider_display}: {e}")
                 # Fallback to simple extraction method
                 return self._fallback_name(description)
         else:

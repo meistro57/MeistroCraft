@@ -24,8 +24,11 @@ class TestCodeReviewAnalyzer(unittest.TestCase):
 
         # Test configuration
         self.test_config = {
+            'llm_provider': 'openai',
             'openai_api_key': 'test_openai_key',
+            'openrouter_api_key': 'test_openrouter_key',
             'openai_model': 'gpt-4-0613',
+            'openrouter_model': 'openrouter/anthropic/claude-3.5-sonnet',
             'enable_ai_review': True
         }
 

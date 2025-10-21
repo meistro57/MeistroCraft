@@ -1,8 +1,15 @@
 {
+  "llm_provider": "openai",
   "openai_api_key": "sk-your-openai-key-here",
+  "openrouter_api_key": "or-your-openrouter-key-here",
   "crush_api_key": "sk-crush-your-api-key-here",
   "github_api_key": "ghp_your-github-personal-access-token",
   "openai_model": "gpt-4-0613",
+  "openrouter_model": "openrouter/anthropic/claude-3.5-sonnet",
+  "openrouter": {
+    "referer": "",
+    "title": "MeistroCraft"
+  },
   "crush_model": "crush-pro-1",
   "allowed_tools": ["Read", "Write", "Bash(npm run test)"],
   "permission_mode": "acceptEdits",
