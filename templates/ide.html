@@ -1949,8 +1949,15 @@
                         <h4 onclick="toggleSettingsSection(this)">🔑 API Configuration</h4>
                         <div class="settings-content">
                         <div class="setting-item">
+                            <label for="llmProvider">LLM Provider</label>
+                            <select id="llmProvider">
+                                <option value="openai">OpenAI</option>
+                                <option value="openrouter">OpenRouter</option>
+                            </select>
+                        </div>
+                        <div class="setting-item">
                             <label for="openaiKey">
-                                OpenAI API Key 
+                                <span id="llmKeyLabel">LLM API Key</span>
                                 <span class="api-status" id="openaiStatus">
                                     <span class="status-indicator status-unknown">⚪</span>
                                     <span class="status-text">Unknown</span>
@@ -1960,7 +1967,7 @@
                                 <input type="password" id="openaiKey" placeholder="sk-..." />
                                 <button type="button" class="btn-test" onclick="testAPIKey('openai')">Test</button>
                             </div>
-                            <small>Your OpenAI API key for GPT models</small>
+                            <small id="llmKeyHelp">Your OpenAI API key for GPT models</small>
                         </div>
                         <div class="setting-item">
                             <label for="crushKey">
@@ -1997,6 +2004,8 @@
                                 <option value="gpt-4-0613">GPT-4 (0613)</option>
                                 <option value="gpt-4-turbo">GPT-4 Turbo</option>
                                 <option value="gpt-3.5-turbo">GPT-3.5 Turbo</option>
+                                <option value="openrouter/anthropic/claude-3.5-sonnet">Claude 3.5 Sonnet (OpenRouter)</option>
+                                <option value="openrouter/google/gemini-flash-1.5">Gemini Flash 1.5 (OpenRouter)</option>
                                 <option value="crush-pro-1">Crush Pro 1</option>
                                 <option value="crush-dev-1">Crush Dev 1</option>
                                 <option value="crush-lite-1">Crush Lite 1</option>

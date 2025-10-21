@@ -18,7 +18,11 @@ print('=' * 60)
 for desc in test_cases:
     try:
         # Test with no OpenAI key to trigger fallback
-        config = {'openai_api_key': None}
+        config = {
+            'llm_provider': 'openai',
+            'openai_api_key': None,
+            'openrouter_api_key': None
+        }
         name = generate_creative_project_name(desc, config)
         print(f'{desc[:40]:<40} → {name}')
     except Exception as e:

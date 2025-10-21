@@ -15,6 +15,7 @@ from enum import Enum
 
 class ApiProvider(Enum):
     OPENAI = "openai"
+    OPENROUTER = "openrouter"
     CRUSH = "crush"
 
 
@@ -38,22 +39,32 @@ class TokenUsage:
     task_type: Optional[str] = None
 
     @classmethod
-    def from_openai_response(
+    def from_chat_completion(
             cls,
+            provider: ApiProvider,
             response: Any,
             model: str,
             session_id: Optional[str] = None,
             task_type: Optional[str] = None) -> 'TokenUsage':
-        """Create TokenUsage from OpenAI API response."""
-        usage = response.usage
-        cost = cls._calculate_openai_cost(model, usage.prompt_tokens, usage.completion_tokens)
+        """Create :class:`TokenUsage` from an OpenAI-compatible chat completion response."""
+        usage = getattr(response, 'usage', None)
+        prompt_tokens = getattr(usage, 'prompt_tokens', 0)
+        completion_tokens = getattr(usage, 'completion_tokens', 0)
+        total_tokens = getattr(usage, 'total_tokens', prompt_tokens + completion_tokens)
+
+        if provider == ApiProvider.OPENAI:
+            cost = cls._calculate_openai_cost(model, prompt_tokens, completion_tokens)
+        elif provider == ApiProvider.OPENROUTER:
+            cost = cls._calculate_openrouter_cost(model, prompt_tokens, completion_tokens)
+        else:
+            cost = 0.0
 
         return cls(
-            provider=ApiProvider.OPENAI.value,
+            provider=provider.value,
             model=model,
-            input_tokens=usage.prompt_tokens,
-            output_tokens=usage.completion_tokens,
-            total_tokens=usage.total_tokens,
+            input_tokens=prompt_tokens,
+            output_tokens=completion_tokens,
+            total_tokens=total_tokens,
             cost_usd=cost,
             timestamp=datetime.now().isoformat(),
             session_id=session_id,
@@ -99,6 +110,22 @@ class TokenUsage:
         }
 
         # Default pricing if model not found
+        default_pricing = {"input": 0.01, "output": 0.03}
+        model_pricing = pricing.get(model, default_pricing)
+
+        input_cost = (input_tokens / 1000) * model_pricing["input"]
+        output_cost = (output_tokens / 1000) * model_pricing["output"]
+
+        return round(input_cost + output_cost, 6)
+
+    @staticmethod
+    def _calculate_openrouter_cost(model: str, input_tokens: int, output_tokens: int) -> float:
+        """Estimate cost for OpenRouter API usage."""
+        pricing = {
+            "openrouter/anthropic/claude-3.5-sonnet": {"input": 0.003, "output": 0.015},
+            "openrouter/google/gemini-flash-1.5": {"input": 0.00125, "output": 0.00375},
+        }
+
         default_pricing = {"input": 0.01, "output": 0.03}
         model_pricing = pricing.get(model, default_pricing)
 

@@ -1518,6 +1518,7 @@ Happy coding! 🚀
         // Apply default settings and load from storage
         this.settings = {
             // API Configuration
+            llmProvider: 'openai',
             openaiKey: '',
             crushKey: '',
             githubKey: '',
@@ -1591,11 +1592,13 @@ Happy coding! 🚀
     
     updateSettingsUI() {
         // Update all form elements with current settings
+        const llmProviderField = document.getElementById('llmProvider');
         const openaiKeyField = document.getElementById('openaiKey');
         const crushKeyField = document.getElementById('crushKey');
         const githubKeyField = document.getElementById('githubKey');
         const defaultModelField = document.getElementById('defaultModel');
         
+        if (llmProviderField) llmProviderField.value = this.settings.llmProvider || 'openai';
         if (openaiKeyField) openaiKeyField.value = this.settings.openaiKey || '';
         if (crushKeyField) crushKeyField.value = this.settings.crushKey || '';
         if (githubKeyField) githubKeyField.value = this.settings.githubKey || '';
@@ -1620,9 +1623,37 @@ Happy coding! 🚀
         document.getElementById('autoSave').checked = this.settings.autoSave;
         document.getElementById('autoSaveDelay').value = this.settings.autoSaveDelay;
         document.getElementById('sessionBackup').checked = this.settings.sessionBackup;
+
+        this.updateLLMProviderUI();
+    }
+
+    updateLLMProviderUI() {
+        const provider = this.settings.llmProvider || 'openai';
+        const keyField = document.getElementById('openaiKey');
+        const label = document.getElementById('llmKeyLabel');
+        const helpText = document.getElementById('llmKeyHelp');
+
+        if (label) {
+            label.textContent = provider === 'openrouter' ? 'OpenRouter API Key' : 'OpenAI API Key';
+        }
+
+        if (helpText) {
+            helpText.textContent = provider === 'openrouter'
+                ? 'Your OpenRouter API key for compatible models'
+                : 'Your OpenAI API key for GPT models';
+        }
+
+        if (keyField && !keyField.placeholder.includes('configured')) {
+            keyField.placeholder = provider === 'openrouter' ? 'or-...' : 'sk-...';
+        }
     }
     
     setupSettingsListeners() {
+        document.getElementById('llmProvider').addEventListener('change', (e) => {
+            this.settings.llmProvider = e.target.value;
+            this.updateLLMProviderUI();
+        });
+
         // Font size sliders
         document.getElementById('fontSize').addEventListener('input', (e) => {
             document.getElementById('fontSizeValue').textContent = e.target.value + 'px';
@@ -1660,6 +1691,7 @@ Happy coding! 🚀
         
         // Collect all settings from UI
         this.settings = {
+            llmProvider: document.getElementById('llmProvider').value,
             openaiKey: document.getElementById('openaiKey').value,
             crushKey: document.getElementById('crushKey').value,
             githubKey: document.getElementById('githubKey').value,
@@ -1685,6 +1717,7 @@ Happy coding! 🚀
         };
         
         console.log('🔧 Collected settings:', {
+            llmProvider: this.settings.llmProvider,
             openaiKey: this.settings.openaiKey ? `${this.settings.openaiKey.substring(0, 8)}...` : 'empty',
             crushKey: this.settings.crushKey ? `${this.settings.crushKey.substring(0, 8)}...` : 'empty',
             githubKey: this.settings.githubKey ? `${this.settings.githubKey.substring(0, 8)}...` : 'empty'
@@ -1695,8 +1728,13 @@ Happy coding! 🚀
         
         // Save API configuration to backend if any API keys are provided
         const apiConfig = {};
+        apiConfig.llm_provider = this.settings.llmProvider;
         if (this.settings.openaiKey && this.settings.openaiKey.trim() !== '') {
-            apiConfig.openai_api_key = this.settings.openaiKey;
+            if (this.settings.llmProvider === 'openrouter') {
+                apiConfig.openrouter_api_key = this.settings.openaiKey;
+            } else {
+                apiConfig.openai_api_key = this.settings.openaiKey;
+            }
         }
         if (this.settings.crushKey && this.settings.crushKey.trim() !== '') {
             apiConfig.crush_api_key = this.settings.crushKey;
@@ -1707,6 +1745,8 @@ Happy coding! 🚀
         if (this.settings.defaultModel) {
             if (this.settings.defaultModel.startsWith('gpt-')) {
                 apiConfig.openai_model = this.settings.defaultModel;
+            } else if (this.settings.defaultModel.startsWith('openrouter/')) {
+                apiConfig.openrouter_model = this.settings.defaultModel;
             } else if (this.settings.defaultModel.startsWith('crush-')) {
                 apiConfig.crush_model = this.settings.defaultModel;
             }
@@ -2103,22 +2143,38 @@ Happy coding! 🚀
         testButton.disabled = true;
         
         try {
-            const apiKey = document.getElementById(`${provider}Key`).value;
+            const keyFieldId = provider === 'openai' ? 'openaiKey' : `${provider}Key`;
+            const apiKey = document.getElementById(keyFieldId).value;
             
             if (!apiKey || apiKey.trim() === '') {
                 throw new Error('API key is empty');
             }
             
             // Send test request to backend
+            const providerToTest = provider === 'openai'
+                ? (document.getElementById('llmProvider').value || 'openai')
+                : provider;
+            const providerDisplay = providerToTest === 'openrouter'
+                ? 'OpenRouter'
+                : providerToTest === 'openai'
+                    ? 'OpenAI'
+                    : provider.charAt(0).toUpperCase() + provider.slice(1);
+
+            const payload = {
+                provider: providerToTest,
+                api_key: apiKey
+            };
+
+            if (provider === 'openai') {
+                payload.model = document.getElementById('defaultModel').value;
+            }
+
             const response = await fetch('/api/test-api-key', {
                 method: 'POST',
                 headers: {
                     'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({
-                    provider: provider,
-                    api_key: apiKey
-                })
+                body: JSON.stringify(payload)
             });
             
             if (!response.ok) {
@@ -2139,17 +2195,31 @@ Happy coding! 🚀
             if (result.status === 'valid') {
                 indicatorElement.className = 'status-indicator status-valid';
                 textElement.textContent = 'Valid';
-                this.showNotification('success', `${provider} API key is valid!`);
+                const placeholderField = document.getElementById('openaiKey');
+                if (provider === 'openai' && placeholderField) {
+                    placeholderField.placeholder = providerToTest === 'openrouter'
+                        ? 'or-...(configured)'
+                        : 'sk-...(configured)';
+                }
+                this.showNotification('success', `${providerDisplay} API key is valid!`);
             } else {
                 indicatorElement.className = 'status-indicator status-invalid';
                 textElement.textContent = 'Invalid';
                 const errorMessage = result.message || 'Unknown error';
-                this.showNotification('error', `${provider} API key is invalid: ${errorMessage}`);
+                this.showNotification('error', `${providerDisplay} API key is invalid: ${errorMessage}`);
             }
         } catch (error) {
             indicatorElement.className = 'status-indicator status-invalid';
             textElement.textContent = 'Error';
-            this.showNotification('error', `Error testing ${provider} API key: ${error.message}`);
+            const providerToTest = provider === 'openai'
+                ? (document.getElementById('llmProvider').value || 'openai')
+                : provider;
+            const providerDisplay = providerToTest === 'openrouter'
+                ? 'OpenRouter'
+                : providerToTest === 'openai'
+                    ? 'OpenAI'
+                    : provider.charAt(0).toUpperCase() + provider.slice(1);
+            this.showNotification('error', `Error testing ${providerDisplay} API key: ${error.message}`);
         } finally {
             testButton.disabled = false;
         }
@@ -2170,13 +2240,26 @@ Happy coding! 🚀
                 const config = await response.json();
                 
                 // Update OpenAI status
+                const providerId = config.openai.provider || 'openai';
+                const providerDisplay = config.openai.display_name || (providerId === 'openrouter' ? 'OpenRouter' : 'OpenAI');
+                this.settings.llmProvider = providerId;
+                const providerSelect = document.getElementById('llmProvider');
+                if (providerSelect) providerSelect.value = providerId;
+                const keyField = document.getElementById('openaiKey');
+
                 if (config.openai.configured) {
-                    this.updateAPIStatus('openai', 'valid', `Configured (${config.openai.model})`);
-                    document.getElementById('openaiKey').placeholder = 'sk-...(configured)';
+                    const modelSuffix = config.openai.model ? ` (${config.openai.model})` : '';
+                    this.updateAPIStatus('openai', 'valid', `Configured (${providerDisplay}${modelSuffix})`);
+                    if (keyField) {
+                        keyField.placeholder = providerId === 'openrouter' ? 'or-...(configured)' : 'sk-...(configured)';
+                    }
                 } else {
-                    this.updateAPIStatus('openai', 'invalid', 'Not Configured');
-                    document.getElementById('openaiKey').placeholder = 'sk-...';
+                    this.updateAPIStatus('openai', 'invalid', `${providerDisplay} Not Configured`);
+                    if (keyField) {
+                        keyField.placeholder = providerId === 'openrouter' ? 'or-...' : 'sk-...';
+                    }
                 }
+                this.updateLLMProviderUI();
                 
                 // Update Crush status
                 if (config.crush.configured) {
@@ -2221,21 +2304,31 @@ Happy coding! 🚀
                 const config = await response.json();
                 
                 // Update API key fields based on the actual API response format
+                const providerId = config.openai?.provider || 'openai';
+                const providerDisplay = config.openai?.display_name || (providerId === 'openrouter' ? 'OpenRouter' : 'OpenAI');
+                this.settings.llmProvider = providerId;
+                const providerSelect = document.getElementById('llmProvider');
+                if (providerSelect) providerSelect.value = providerId;
+
+                const openaiKeyInput = document.getElementById('openaiKey');
                 if (config.openai?.configured) {
-                    document.getElementById('openaiKey').placeholder = 'sk-...(configured)';
-                    this.updateAPIStatus('openai', 'valid', 'Configured');
-                    // Update default model if available
+                    if (openaiKeyInput) {
+                        openaiKeyInput.placeholder = providerId === 'openrouter' ? 'or-...(configured)' : 'sk-...(configured)';
+                        openaiKeyInput.value = '';
+                    }
+                    this.updateAPIStatus('openai', 'valid', `Configured (${providerDisplay}${config.openai.model ? ` (${config.openai.model})` : ''})`);
                     if (config.openai.model) {
                         document.getElementById('defaultModel').value = config.openai.model;
-                        // Also update our local settings to match backend
                         this.settings.defaultModel = config.openai.model;
                     }
-                    // Clear the input since it's already configured
-                    document.getElementById('openaiKey').value = '';
                 } else {
-                    document.getElementById('openaiKey').placeholder = 'sk-...';
-                    this.updateAPIStatus('openai', 'invalid', 'Not Set');
+                    if (openaiKeyInput) {
+                        openaiKeyInput.placeholder = providerId === 'openrouter' ? 'or-...' : 'sk-...';
+                        openaiKeyInput.value = '';
+                    }
+                    this.updateAPIStatus('openai', 'invalid', `${providerDisplay} Not Set`);
                 }
+                this.updateLLMProviderUI();
                 
                 if (config.crush?.configured) {
                     document.getElementById('crushKey').placeholder = 'sk-crush-...(configured)';
